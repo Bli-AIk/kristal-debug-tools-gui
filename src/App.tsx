@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { applyPresetValues, matchingChapter } from "./presets";
 import "./assets/style.css";
 
 /* ---------- i18n ---------- */
@@ -551,20 +552,10 @@ function ChapterConfigPage({ config, onBack, onSaveAll }: {
   // edits + applied overrides): Ch.N when it equals that preset exactly,
   // otherwise ★ custom. Pressing Ch.N loads that preset into the staged
   // edits (saving overwrites); editing below just modifies the content.
-  const eff = (it: ChapterItem) =>
-    edits[it.key] !== undefined ? edits[it.key] : it.current.value;
-  const matchingCh = [1, 2, 3, 4].find((ch) =>
-    config.items.every((it) =>
-      !it.chValues || String(eff(it)) === String(it.chValues[String(ch)]?.value)));
-  const activeCh = matchingCh ?? 0; // 0 = ★ custom
+  // (pure logic in presets.ts, unit-tested)
+  const activeCh = matchingChapter(config.items, edits); // 0 = ★ custom
 
-  const applyPreset = (n: number) => {
-    const next: Record<string, unknown> = {};
-    for (const it of config.items) {
-      if (it.chValues?.[String(n)]) next[it.key] = it.chValues[String(n)].value;
-    }
-    setEdits(next);
-  };
+  const applyPreset = (n: number) => setEdits(applyPresetValues(config.items, n));
 
   return (
     <main className="layout">
