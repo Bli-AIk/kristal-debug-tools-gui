@@ -172,21 +172,47 @@ a:hover { color: var(--cyan-bright); text-decoration: underline; }
   /* Grow to fill the viewport so the footer sits at the bottom. */
   flex: 1;
   align-content: start;
-  align-items: start; /* keep panels at their natural height per row */
 }
 @media (max-width: 860px) { .layout { grid-template-columns: 1fr; } }
 
 .col { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
 
-/* Fixed grid rows so the two columns align: launch ⇄ project info,
-   init ⇄ runs log, task list ⇄ chapter config. */
-.cell { min-width: 0; }
+/* Fixed grid rows so the two columns align: launch ⇄ chapter info/config,
+   init ⇄ runs log (equal height, runs scrolls), task list ⇄ project info.
+   Panels stretch to the row height (cell > broken-box fills the cell). */
+.cell {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.cell > .broken-box { flex: 1; min-height: 0; }
 .c1r1 { grid-area: 1 / 1; }
 .c2r1 { grid-area: 1 / 2; }
 .c1r2 { grid-area: 2 / 1; }
 .c2r2 { grid-area: 2 / 2; }
-.c1r3 { grid-area: 3 / 1; }
-.c2r3 { grid-area: 3 / 2; }
+.c3 { grid-area: 3 / 1 / 4 / -1; } /* task list spans both columns */
+
+/* Right column, first row: chapter config (natural height) + project
+   info (fills the rest) stacked, together matching the launch panel. */
+.c2r1 > .broken-box:first-child { flex: 0 0 auto; }
+.c2r1 > .broken-box:last-child { flex: 1; min-height: 0; }
+
+/* Chapter info card content (fills the launch panel's height). */
+.chapter-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  justify-content: center;
+  flex: 1;
+}
+.chapter-info .ci-row { font-size: 1rem; }
+.chapter-info .ci-sub { font-size: 0.85rem; color: var(--muted); }
+
+/* Runs log: cap the panel height so the row matches the init panel and
+   scrolls internally instead of growing with the log. */
+.c2r2 { max-height: 220px; }
+.runs-log { overflow-y: auto; min-height: 0; flex: 1; }
 
 /* --- panels: the Deltarune broken border (original SVG drawing) --- */
 
@@ -215,6 +241,13 @@ details.broken-box summary {
   list-style: none;
   display: flex;
   justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+/* Refresh button sits at the far right (before the ▸ marker). */
+.task-summary-right {
+  margin-left: auto;
+  display: flex;
   align-items: center;
   gap: 10px;
 }
@@ -402,7 +435,7 @@ input:focus, select:focus { outline: none; border-color: var(--yellow); }
 
 /* --- runs log --- */
 
-.runs-log { display: flex; flex-direction: column; gap: 2px; max-height: 260px; overflow-y: auto; }
+.runs-log { display: flex; flex-direction: column; gap: 2px; overflow-y: auto; }
 .run-entry {
   display: flex;
   align-items: baseline;

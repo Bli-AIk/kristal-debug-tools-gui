@@ -11,6 +11,7 @@ const I18N: Record<string, Record<string, string>> = {
     initProject: "项目初始化", projectName: "项目名", initBtn: "初始化项目", initConfirm: "再次点击确认",
     initDone: "初始化已在终端窗口启动，完成后建议重启 GUI", initFail: "初始化失败",
     customConfig: "自定义配置", configure: "配置", chapterConfig: "章节配置",
+    currentChapter: "当前章节", overridesActive: "项配置覆盖生效中", noOverrides: "无配置覆盖（用默认值）",
     fLang: "语言", fEncounter: "遭遇", fWave: "波次", fWaveForce: "强制波次",
     fTp: "初始 TP", fMercy: "初始 mercy", fExtra: "额外参数",
     love: "love", engine: "引擎", mod: "模组", just: "just", justEmbedded: "内置 (just crate)",
@@ -28,6 +29,7 @@ const I18N: Record<string, Record<string, string>> = {
     initProject: "INITIALIZE PROJECT", projectName: "PROJECT NAME", initBtn: "INITIALIZE", initConfirm: "CLICK AGAIN TO CONFIRM",
     initDone: "initialization started in a terminal window — restart the GUI when done", initFail: "init failed",
     customConfig: "CUSTOM CONFIG", configure: "CONFIGURE", chapterConfig: "CHAPTER CONFIG",
+    currentChapter: "CURRENT CHAPTER", overridesActive: "overrides active", noOverrides: "no overrides (defaults)",
     fLang: "LANGUAGE", fEncounter: "ENCOUNTER", fWave: "WAVE", fWaveForce: "WAVE FORCE",
     fTp: "TP", fMercy: "MERCY", fExtra: "EXTRA ARGS",
     love: "love", engine: "engine", mod: "mod", just: "just", justEmbedded: "builtin (just crate)",
@@ -176,7 +178,11 @@ export default function App() {
               } catch (e) { showFlash(t("taskFail") + ": " + e, true); }
             }} />
           </div>
-          <div className="cell c2r1"><ProjectPanel status={status} /></div>
+          <div className="cell c2r1">
+            <ChapterEntry chapter={chapterConfig?.chapter ?? 0} count={overrideCount}
+              onOpen={() => { loadAll(); setView("chapter"); }} />
+            <ProjectPanel status={status} />
+          </div>
 
           {status?.template?.isTemplate && (
             <div className="cell c1r2">
@@ -191,7 +197,7 @@ export default function App() {
           )}
           <div className="cell c2r2"><RunsLog runs={runs} /></div>
 
-          <div className="cell c1r3">
+          <div className="cell c3">
             <TaskList tasks={tasks} onRun={async (task, args, justfile) => {
               try {
                 await invoke("run_task", { req: { task, args, justfile } });
@@ -199,9 +205,6 @@ export default function App() {
                 addRun(task, `just ${task} ${args.join(" ")}`);
               } catch (e) { showFlash(t("taskFail") + ": " + e, true); }
             }} onRefresh={loadAll} />
-          </div>
-          <div className="cell c2r3">
-            <ChapterEntry count={overrideCount} onOpen={() => { loadAll(); setView("chapter"); }} />
           </div>
         </main>
       ) : (
@@ -352,12 +355,22 @@ function InitPanel({ onInit }: { onInit: (name: string) => void }) {
 
 /* ---------- chapter entry ---------- */
 
-function ChapterEntry({ count, onOpen }: { count: number; onOpen: () => void }) {
+function ChapterEntry({ chapter, count, onOpen }: {
+  chapter: number; count: number; onOpen: () => void;
+}) {
   return (
     <div className="broken-box panel">
       <div className="panel-head">
         <h2>{t("chapterConfig")}</h2>
         <button className="btn small" onClick={onOpen}>{t("configure")}{count > 0 ? ` ✎${count}` : ""}</button>
+      </div>
+      <div className="chapter-info">
+        <span className="ci-row">
+          {t("currentChapter")}: {chapter > 0 ? `Ch.${chapter}` : "—"}
+        </span>
+        <span className="ci-row ci-sub">
+          {count > 0 ? `${count} ${t("overridesActive")}` : t("noOverrides")}
+        </span>
       </div>
     </div>
   );
@@ -404,7 +417,9 @@ function TaskList({ tasks, onRun, onRefresh }: {
     <details className="broken-box panel" open={open} onToggle={(e) => setOpen((e.target as HTMLDetailsElement).open)}>
       <summary>
         <h2>{t("tasks")}</h2>
-        <button className="btn small" onClick={onRefresh}>{t("refresh")}</button>
+        <span className="task-summary-right">
+          <button className="btn small" onClick={onRefresh}>{t("refresh")}</button>
+        </span>
       </summary>
       <div className="task-list">
         {tasks?.source === "builtin" ? <p className="hint err">{t("justNone")}</p>
