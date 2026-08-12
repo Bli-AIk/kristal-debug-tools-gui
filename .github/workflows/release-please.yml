@@ -5,6 +5,11 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to rebuild and attach assets to
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -36,7 +41,11 @@ jobs:
   build:
     name: Build Tauri bundles (${{ matrix.os }})
     needs: release-please
-    if: needs.release-please.outputs.release_created == 'true'
+    if: >-
+      needs.release-please.outputs.release_created == 'true' ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.tag != '')
+    env:
+      RELEASE_TAG: ${{ github.event.inputs.tag || needs.release-please.outputs.tag_name }}
     strategy:
       fail-fast: false
       matrix:
@@ -107,8 +116,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: ${{ needs.release-please.outputs.tag_name }}
-          releaseName: ${{ needs.release-please.outputs.tag_name }}
+          tagName: ${{ env.RELEASE_TAG }}
+          releaseName: ${{ env.RELEASE_TAG }}
           releaseDraft: false
           prerelease: false
           files: dist/upload/*
