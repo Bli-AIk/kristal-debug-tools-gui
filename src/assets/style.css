@@ -156,7 +156,28 @@ a:hover { color: var(--cyan-bright); text-decoration: underline; }
 }
 .settings-menu .set-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 0.9rem; }
 .settings-menu select { background: #000; color: var(--text); border: 2px solid var(--text); padding: 0.2em 0.5em; font-family: inherit; }
-.settings-menu input[type="checkbox"] { accent-color: var(--yellow); width: 16px; height: 16px; }
+/* Custom checkbox: the native one is invisible on the black menu. */
+.settings-menu input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--text);
+  background: transparent;
+  cursor: pointer;
+  flex: none;
+}
+.settings-menu input[type="checkbox"]:hover { border-color: var(--yellow); }
+.settings-menu input[type="checkbox"]:checked { background: var(--yellow); border-color: var(--yellow); }
+.settings-menu input[type="checkbox"]:checked::after {
+  content: "✓";
+  color: #000;
+  display: block;
+  text-align: center;
+  line-height: 13px;
+  font-size: 12px;
+  font-family: var(--font-bold);
+}
 
 /* --- status bar --- */
 
