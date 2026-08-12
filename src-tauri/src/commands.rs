@@ -237,7 +237,7 @@ pub fn chapter_config(state: State<AppState>) -> Value {
     keys.extend(features.iter().map(|(k, _)| k.clone()));
     let chapter = config::current_chapter(&state.mod_root);
 
-    let items: Vec<Value> = keys
+    let mut items: Vec<Value> = keys
         .into_iter()
         .map(|k| {
             // options: dedup (label, raw) pairs across the 4 chapters
@@ -361,9 +361,29 @@ pub fn chapter_config(state: State<AppState>) -> Value {
                 "current": current,
                 "chValues": ch_values,
                 "isOverride": is_override,
+                "standard": frow.and_then(|f| f.get("name")).is_some(),
             })
         })
         .collect();
+
+    // mod.json also carries an encounter setting (config.kristal) — a
+    // free-form string outside the Kristal mod menu; empty = none.
+    let enc_override = overrides.get("default_encounter");
+    items.push(json!({
+        "key": "default_encounter",
+        "name": "Encounter",
+        "desc": "遭遇战 ID，留空为无",
+        "descEn": "Encounter ID; empty = none",
+        "options": [],
+        "current": json!({
+            "label": enc_override.and_then(|v| v.as_str()).unwrap_or(""),
+            "value": enc_override.and_then(|v| v.as_str()).unwrap_or(""),
+        }),
+        "chValues": {},
+        "isOverride": enc_override.is_some(),
+        "standard": false,
+    }));
+
     json!({ "chapter": chapter, "items": items })
 }
 

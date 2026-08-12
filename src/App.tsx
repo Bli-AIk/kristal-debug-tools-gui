@@ -23,6 +23,7 @@ const I18N: Record<string, Record<string, string>> = {
     overrideSaved: "已保存", overrideReset: "重置", back: "返回", chapterSaved: "默认章节已保存",
     save: "保存",
     run: "运行", refresh: "刷新",
+    otherConfig: "其他配置", encounterEmpty: "留空为无",
     settings: "设置", language: "语言", keepOpen: "任务运行完保持窗口打开",
     compileOnly: "仅本地编译模式（下次启动生效）",
   },
@@ -44,6 +45,7 @@ const I18N: Record<string, Record<string, string>> = {
     overrideSaved: "saved", overrideReset: "reset", back: "BACK", chapterSaved: "default chapter saved",
     save: "SAVE",
     run: "RUN", refresh: "REFRESH",
+    otherConfig: "OTHER CONFIG", encounterEmpty: "empty = none",
     settings: "SETTINGS", language: "LANGUAGE", keepOpen: "keep the task window open after it finishes",
     compileOnly: "compile from source only (next launch)",
   },
@@ -79,6 +81,7 @@ interface ChapterItem {
   current: { label: string; value: unknown };
   chValues?: Record<string, { label: string; value: unknown }>;
   isOverride?: boolean;
+  standard?: boolean;
 }
 interface ChapterConfig { chapter: number; items: ChapterItem[] }
 interface RunEntry { id: number; label: string; command: string }
@@ -582,7 +585,7 @@ function ChapterConfigPage({ config, onBack, onPickChapter, onSaveAll }: {
             <button className="btn small" onClick={onBack}>← {t("back")}</button>
           </div>
           <div className="chapter-config-list wide">
-            {config.items.map((item) => {
+            {config.items.filter((i) => i.standard !== false).map((item) => {
               // Staged edits (yellow) preview before saving; the green
               // current value stays highlighted. Chapter preview also
               // shows in yellow until the property is edited.
@@ -655,6 +658,40 @@ function ChapterConfigPage({ config, onBack, onPickChapter, onSaveAll }: {
                         <button className="btn small" onClick={() => edit(item.key, null)}>{t("overrideReset")}</button>
                       </span>
                     ) : null}
+                  </span>
+                </div>
+              );
+            })}
+            {config.items.some((i) => i.standard === false) && (
+              <div className="task-group other-config-head">{t("otherConfig")}</div>
+            )}
+            {config.items.filter((i) => i.standard === false).map((item) => {
+              const editVal = edits[item.key];
+              const hasEdit = editVal !== undefined;
+              const shownVal = hasEdit ? editVal : item.current.value;
+              return (
+                <div className="cc-row" key={item.key}>
+                  <span className="cc-name" title={item.key}>
+                    {item.name ?? item.key}
+                    {(item.desc || item.descEn) && (
+                      <span className="cc-desc"> — {lang === "zh" ? (item.desc ?? item.descEn) : (item.descEn ?? item.desc)}</span>
+                    )}
+                  </span>
+                  <span className="cc-control">
+                    {typeof item.current.value === "string" ? (
+                      <>
+                        <input className={"cc-edit" + (hasEdit ? " pending" : "")} type="text"
+                          placeholder={item.key === "default_encounter" ? t("encounterEmpty") : ""}
+                          value={String(shownVal)}
+                          onChange={(e) => edit(item.key, e.target.value)}
+                          onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }} />
+                        {hasEdit && !shownVal && (
+                          <button className="btn small" onClick={() => edit(item.key, null)}>{t("overrideReset")}</button>
+                        )}
+                      </>
+                    ) : (
+                      <span className="cc-value applied">{item.current.label || "—"}</span>
+                    )}
                   </span>
                 </div>
               );
