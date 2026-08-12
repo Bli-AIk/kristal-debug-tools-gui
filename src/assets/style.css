@@ -482,17 +482,15 @@ input:focus, select:focus { outline: none; border-color: var(--yellow); }
 .cc-pair { display: flex; gap: 6px; }
 .cc-value { color: var(--dim); }
 .cc-select.pending { border-color: var(--yellow); }
-/* Preview diff: the control dims to dark green, the previewed value
-   shows as a yellow tag next to it. */
+/* Preview diff: the control stays green-bordered, its text dims to dark
+   green; the previewed value is plain yellow text next to it. */
 .cc-control:has(.cc-preview) .cc-select,
 .cc-control:has(.cc-preview) .cc-edit {
   color: #2f7d32;
   border-color: #2f7d32;
 }
 .cc-preview {
-  border: 1px solid var(--yellow);
   color: var(--yellow);
-  padding: 1px 6px;
   font-size: 0.8rem;
   white-space: nowrap;
 }
