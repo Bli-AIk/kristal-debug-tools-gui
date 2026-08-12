@@ -74,6 +74,7 @@ interface ChapterItem {
   key: string; name?: string; desc?: string; descEn?: string;
   options: { label: string; value: unknown }[];
   current: { label: string; value: unknown };
+  chValues?: Record<string, { label: string; value: unknown }>;
   isOverride?: boolean;
 }
 interface ChapterConfig { chapter: number; items: ChapterItem[] }
@@ -530,6 +531,11 @@ function ChapterConfigPage({ config, onBack, onPickChapter, onSet }: {
 
   const pending = selected !== config.chapter && selected !== 0;
 
+  // A custom config: some override differs from every chapter's defaults.
+  const hasCustom = config.items.some((it) =>
+    it.isOverride &&
+    ![1, 2, 3, 4].some((ch) => String(it.chValues?.[String(ch)]?.value) === String(it.current.value)));
+
   return (
     <main className="layout">
         <div className="broken-box panel chapter-page">
@@ -541,6 +547,8 @@ function ChapterConfigPage({ config, onBack, onPickChapter, onSet }: {
                   className={"btn small" + (n === config.chapter ? " applied" : "") + (n === selected && pending ? " pending" : "")}
                   onClick={() => setSelected(n)}>Ch.{n}</button>
               ))}
+              <button className={"btn small" + (hasCustom ? " applied" : "")}
+                disabled={!hasCustom} title={t("customConfig")}>★ {t("customConfig")}</button>
               <button className="btn small danger" disabled={!pending}
                 onClick={() => { onPickChapter(selected); setSelected(config.chapter); }}>
                 {t("apply")}
@@ -549,47 +557,56 @@ function ChapterConfigPage({ config, onBack, onPickChapter, onSet }: {
             <button className="btn small" onClick={onBack}>← {t("back")}</button>
           </div>
           <div className="chapter-config-list wide">
-            {config.items.map((item) => (
-              <div className="cc-row" key={item.key}>
-                <span className="cc-name" title={item.key}>
-                  {item.name ?? item.key}
-                  {(item.desc || item.descEn) && (
-                    <span className="cc-desc"> — {lang === "zh" ? (item.desc ?? item.descEn) : (item.descEn ?? item.desc)}</span>
-                  )}
-                </span>
-                <span className="cc-control">
-                  {item.options.length <= 1 ? (
-                    <span className="cc-value">{item.current.label || "—"}</span>
-                  ) : item.options.length === 2 ? (
-                    <span className="cc-pair">
-                      {item.options.map((o) => (
-                        <button key={o.label}
-                          className={"btn small" + (String(o.value) === String(item.current.value) ? " applied" : "")}
-                          onClick={() => { if (String(o.value) !== String(item.current.value)) onSet(item.key, o.value); }}>
-                          {o.label}
-                        </button>
-                      ))}
-                    </span>
-                  ) : (
-                    <select className="cc-select" value={String(item.current.value)}
-                      onChange={(e) => {
-                        const o = item.options.find((x) => String(x.value) === e.target.value);
-                        if (o) onSet(item.key, o.value);
-                      }}>
-                      {item.options.map((o) => (
-                        <option key={String(o.value)} value={String(o.value)}>{o.label}</option>
-                      ))}
-                    </select>
-                  )}
-                  {item.isOverride ? (
-                    <span className="cc-saved">
-                      <span className="ok">{t("overrideSaved")}</span>
-                      <button className="btn small" onClick={() => onSet(item.key, null)}>{t("overrideReset")}</button>
-                    </span>
-                  ) : null}
-                </span>
-              </div>
-            ))}
+            {config.items.map((item) => {
+              // Previewing another chapter: show that chapter's values in
+              // yellow. An active override always stays green (green wins).
+              const previewing = pending && !item.isOverride;
+              const shown = previewing
+                ? (item.chValues?.[String(selected)] ?? item.current)
+                : item.current;
+              const hl = (item.isOverride || !previewing) ? " applied" : " pending";
+              return (
+                <div className="cc-row" key={item.key}>
+                  <span className="cc-name" title={item.key}>
+                    {item.name ?? item.key}
+                    {(item.desc || item.descEn) && (
+                      <span className="cc-desc"> — {lang === "zh" ? (item.desc ?? item.descEn) : (item.descEn ?? item.desc)}</span>
+                    )}
+                  </span>
+                  <span className="cc-control">
+                    {item.options.length <= 1 ? (
+                      <span className={"cc-value" + hl}>{shown.label || "—"}</span>
+                    ) : item.options.length === 2 ? (
+                      <span className="cc-pair">
+                        {item.options.map((o) => (
+                          <button key={o.label}
+                            className={"btn small" + (String(o.value) === String(shown.value) ? hl : "")}
+                            onClick={() => { if (String(o.value) !== String(item.current.value)) onSet(item.key, o.value); }}>
+                            {o.label}
+                          </button>
+                        ))}
+                      </span>
+                    ) : (
+                      <select className="cc-select" value={String(shown.value)}
+                        onChange={(e) => {
+                          const o = item.options.find((x) => String(x.value) === e.target.value);
+                          if (o) onSet(item.key, o.value);
+                        }}>
+                        {item.options.map((o) => (
+                          <option key={String(o.value)} value={String(o.value)}>{o.label}</option>
+                        ))}
+                      </select>
+                    )}
+                    {item.isOverride ? (
+                      <span className="cc-saved">
+                        <span className="ok">{t("overrideSaved")}</span>
+                        <button className="btn small" onClick={() => onSet(item.key, null)}>{t("overrideReset")}</button>
+                      </span>
+                    ) : null}
+                  </span>
+                </div>
+              );
+            })}
           </div>
         </div>
     </main>

@@ -255,6 +255,24 @@ pub fn chapter_config(state: State<AppState>) -> Value {
                 (json!({ "label": "", "value": Value::Null }), false)
             };
             let frow = features.get(&k);
+            // per-chapter default values (semantic label + raw value) so
+            // the UI can preview another chapter before applying it
+            let ch_values: Map<String, Value> = (1..=4)
+                .map(|ch| {
+                    let raw = defaults.get(ch - 1).and_then(|m| m.get(&k));
+                    let label = features
+                        .get(&k)
+                        .and_then(|f| f.get(&ch.to_string()))
+                        .and_then(|v| v.as_str())
+                        .map(|s| s.to_string())
+                        .or_else(|| raw.map(|r| r.to_string()))
+                        .unwrap_or_default();
+                    (
+                        ch.to_string(),
+                        json!({ "label": label, "value": raw.cloned().unwrap_or(Value::Null) }),
+                    )
+                })
+                .collect();
             json!({
                 "key": k,
                 "name": frow.and_then(|f| f.get("name")).cloned().unwrap_or(Value::String(k.clone())),
@@ -262,6 +280,7 @@ pub fn chapter_config(state: State<AppState>) -> Value {
                 "descEn": frow.and_then(|f| f.get("descEn")).cloned().unwrap_or(Value::Null),
                 "options": options.into_iter().map(|(l, v)| json!({ "label": l, "value": v })).collect::<Vec<_>>(),
                 "current": current,
+                "chValues": ch_values,
                 "isOverride": is_override,
             })
         })
