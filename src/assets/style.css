@@ -323,8 +323,9 @@ details.broken-box summary:hover::after { color: var(--yellow); }
 .btn.applied { color: #00ff00; border-color: #00ff00; }
 .btn.pending { color: var(--yellow); border-color: var(--yellow); }
 /* While previewing (a pending button exists), the green applied state
-   dims so the yellow preview stands out — chapter bar and option rows. */
-.chapter-buttons:has(.btn.pending) .btn.applied,
+   dims so the yellow preview stands out — chapter bar and option rows.
+   The ★ custom button is the actual current state, so it never dims. */
+.chapter-buttons:has(.btn.pending) .btn.applied:not(.custom-btn),
 .cc-control:has(.btn.pending) .btn.applied { color: #2f7d32; border-color: #2f7d32; }
 .btn:disabled { opacity: 0.4; cursor: default; }
 .btn:disabled:hover { color: var(--text); border-color: var(--text); }
