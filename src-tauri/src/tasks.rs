@@ -218,3 +218,32 @@ pub fn list(source: JustSource, runner: &Path, library_justfile: &Path, mod_root
 pub fn config_feature_descs() -> Map<String, Value> {
     desc_map()
 }
+
+/// Full config-features rows: key -> { desc, "1".."4": human-readable
+/// per-chapter values (e.g. "是" / "否" / "noelle").
+pub fn config_feature_rows() -> std::collections::BTreeMap<String, std::collections::BTreeMap<String, Value>> {
+    serde_json::from_str(DESCS_JSON)
+        .ok()
+        .and_then(|v: Value| v.as_array().cloned())
+        .map(|items| {
+            items
+                .into_iter()
+                .filter_map(|it| {
+                    let key = it.get("key")?.as_str()?.to_string();
+                    let mut row = std::collections::BTreeMap::new();
+                    for field in ["name", "desc", "descEn"] {
+                        if let Some(v) = it.get(field).and_then(|d| d.as_str()) {
+                            row.insert(field.to_string(), Value::String(v.to_string()));
+                        }
+                    }
+                    for ch in 1..=4 {
+                        if let Some(v) = it.get(&format!("ch{}", ch)) {
+                            row.insert(ch.to_string(), v.clone());
+                        }
+                    }
+                    Some((key, row))
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}

@@ -71,20 +71,13 @@ interface TaskItem {
 }
 interface TasksResult { source: string; tasks: TaskItem[]; mod?: { tasks: TaskItem[] } | null }
 interface ChapterItem {
-  key: string; desc?: string; values: Record<string, unknown>;
-  override?: unknown;
+  key: string; name?: string; desc?: string; descEn?: string;
+  options: { label: string; value: unknown }[];
+  current: { label: string; value: unknown };
+  isOverride?: boolean;
 }
 interface ChapterConfig { chapter: number; items: ChapterItem[] }
 interface RunEntry { id: number; label: string; command: string }
-
-/* ---------- helpers ---------- */
-
-function fmtValue(v: unknown): string {
-  if (v === true) return "✓";
-  if (v === false) return "✗";
-  if (v === null || v === undefined) return "—";
-  return String(v);
-}
 
 /* ---------- App ---------- */
 
@@ -148,7 +141,7 @@ export default function App() {
   useEffect(() => { if (status) setCompileOnly(status.guiMode ?? false); }, [status]);
 
   const overrideCount =
-    chapterConfig?.items.filter((i) => i.override !== null && i.override !== undefined).length ?? 0;
+    chapterConfig?.items.filter((i) => i.isOverride).length ?? 0;
 
   return (
     <div className="app">
@@ -529,7 +522,6 @@ function ChapterConfigPage({ config, onBack, onPickChapter, onSet }: {
   onSet: (key: string, value: unknown) => void;
 }) {
   const [selected, setSelected] = useState(0);
-  const [values, setValues] = useState<Record<string, string>>({});
   useEffect(() => { if (config) setSelected(config.chapter); }, [config]);
 
   if (!config) {
@@ -559,50 +551,47 @@ function ChapterConfigPage({ config, onBack, onPickChapter, onSet }: {
           <div className="chapter-config-list wide">
             {config.items.map((item) => (
               <div className="cc-row" key={item.key}>
-                <span className="cc-key">{item.key}</span>
-                <span className="cc-desc" title={item.desc}>{item.desc ?? ""}</span>
-                <span className="cc-chips">
-                  {[1, 2, 3, 4].map((n) => (
-                    <span key={n} className={"cc-chip" + (n === config.chapter ? " cur" : "")}>
-                      {n}:{item.values[n] !== undefined ? fmtValue(item.values[n]) : "—"}
-                    </span>
-                  ))}
-                </span>
-                <span className="cc-override">
-                  {typeof item.values["1"] === "boolean" ? (
-                    <BoolToggle item={item} onSet={onSet} />
-                  ) : (
-                    <>
-                      <input type="text" value={values[item.key] ?? (item.override != null ? String(item.override) : "")}
-                        onChange={(e) => setValues((v) => ({ ...v, [item.key]: e.target.value }))}
-                        placeholder={t("overrideDefault")} />
-                      <button className="btn small" onClick={() => onSet(item.key, values[item.key]?.trim() || null)}>{t("overrideSaved")}</button>
-                      <button className="btn small" onClick={() => { setValues((v) => ({ ...v, [item.key]: "" })); onSet(item.key, null); }}>{t("overrideReset")}</button>
-                    </>
+                <span className="cc-name" title={item.key}>
+                  {item.name ?? item.key}
+                  {(item.desc || item.descEn) && (
+                    <span className="cc-desc"> — {lang === "zh" ? (item.desc ?? item.descEn) : (item.descEn ?? item.desc)}</span>
                   )}
+                </span>
+                <span className="cc-control">
+                  {item.options.length <= 1 ? (
+                    <span className="cc-value">{item.current.label || "—"}</span>
+                  ) : item.options.length === 2 ? (
+                    <span className="cc-pair">
+                      {item.options.map((o) => (
+                        <button key={o.label}
+                          className={"btn small" + (String(o.value) === String(item.current.value) ? " applied" : "")}
+                          onClick={() => { if (String(o.value) !== String(item.current.value)) onSet(item.key, o.value); }}>
+                          {o.label}
+                        </button>
+                      ))}
+                    </span>
+                  ) : (
+                    <select className="cc-select" value={String(item.current.value)}
+                      onChange={(e) => {
+                        const o = item.options.find((x) => String(x.value) === e.target.value);
+                        if (o) onSet(item.key, o.value);
+                      }}>
+                      {item.options.map((o) => (
+                        <option key={String(o.value)} value={String(o.value)}>{o.label}</option>
+                      ))}
+                    </select>
+                  )}
+                  {item.isOverride ? (
+                    <span className="cc-saved">
+                      <span className="ok">{t("overrideSaved")}</span>
+                      <button className="btn small" onClick={() => onSet(item.key, null)}>{t("overrideReset")}</button>
+                    </span>
+                  ) : null}
                 </span>
               </div>
             ))}
           </div>
         </div>
     </main>
-  );
-}
-
-function BoolToggle({ item, onSet }: { item: ChapterItem; onSet: (key: string, value: unknown) => void }) {
-  const [state, setState] = useState(
-    item.override === true ? 1 : item.override === false ? 2 : 0,
-  );
-  const states: (boolean | null)[] = [null, true, false];
-  const label = state === 0 ? t("overrideDefault") : state === 1 ? `${t("overrideOn")} ✓` : `${t("overrideOff")} ✗`;
-  return (
-    <button className={"btn small" + (state !== 0 ? " pending" : "")}
-      onClick={() => {
-        const next = (state + 1) % 3;
-        setState(next);
-        onSet(item.key, states[next]);
-      }}>
-      {label}
-    </button>
   );
 }

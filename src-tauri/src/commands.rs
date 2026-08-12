@@ -1,7 +1,7 @@
 //! Tauri commands: the GUI's backend API.
 
 use crate::{config, launcher, tasks, term};
-use serde_json::{json, Map, Value};
+use serde_json::{json, Value};
 use std::path::PathBuf;
 use tauri::{Manager, State};
 
@@ -196,31 +196,77 @@ pub fn launch_game(state: State<AppState>, req: LaunchArgs) -> Result<Value, Str
 pub fn chapter_config(state: State<AppState>) -> Value {
     let defaults = config::chapter_defaults(&state.engine_root);
     let overrides = config::config_overrides(&state.mod_root);
-    let descs = tasks::config_feature_descs();
+    // config-features.json carries the human-readable per-chapter values
+    // ("是"/"否"/"noelle"/...) alongside the raw JSON values.
+    let features = tasks::config_feature_rows();
 
     let mut keys: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
     for m in &defaults {
         keys.extend(m.keys().cloned());
     }
-    keys.extend(descs.keys().cloned());
+    keys.extend(features.iter().map(|(k, _)| k.clone()));
+    let chapter = config::current_chapter(&state.mod_root);
 
     let items: Vec<Value> = keys
         .into_iter()
         .map(|k| {
-            let values: Map<String, Value> = defaults
-                .iter()
-                .enumerate()
-                .filter_map(|(i, m)| m.get(&k).map(|v| ((i + 1).to_string(), v.clone())))
-                .collect();
+            // options: dedup (label, raw) pairs across the 4 chapters
+            let mut options: Vec<(String, Value)> = Vec::new();
+            for ch in 1..=4 {
+                let raw = defaults.get(ch - 1).and_then(|m| m.get(&k));
+                let label = features
+                    .get(&k)
+                    .and_then(|f| f.get(&ch.to_string()))
+                    .and_then(|v| v.as_str());
+                if let (Some(raw), Some(label)) = (raw, label) {
+                    if !options.iter().any(|(l, _)| l.as_str() == label) {
+                        options.push((label.to_string(), raw.clone()));
+                    }
+                }
+            }
+            if options.is_empty() {
+                // feature row has no labels (or missing) — use the raw
+                // values as labels
+                for ch in 1..=4 {
+                    if let Some(raw) = defaults.get(ch - 1).and_then(|m| m.get(&k)) {
+                        let label = raw.to_string();
+                        if !options.iter().any(|(l, _)| *l == label) {
+                            options.push((label, raw.clone()));
+                        }
+                    }
+                }
+            }
+            let (current, is_override) = if let Some(ov) = overrides.get(&k) {
+                let label = options
+                    .iter()
+                    .find(|(_, r)| r == ov)
+                    .map(|(l, _)| l.clone())
+                    .unwrap_or_else(|| ov.to_string());
+                (json!({ "label": label, "value": ov.clone() }), true)
+            } else if let Some(raw) = defaults.get(chapter.saturating_sub(1) as usize).and_then(|m| m.get(&k)) {
+                let label = features
+                    .get(&k)
+                    .and_then(|f| f.get(&chapter.to_string()))
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string())
+                    .unwrap_or_else(|| raw.to_string());
+                (json!({ "label": label, "value": raw.clone() }), false)
+            } else {
+                (json!({ "label": "", "value": Value::Null }), false)
+            };
+            let frow = features.get(&k);
             json!({
                 "key": k,
-                "desc": descs.get(&k).cloned().unwrap_or(Value::Null),
-                "values": values,
-                "override": overrides.get(&k).cloned().unwrap_or(Value::Null),
+                "name": frow.and_then(|f| f.get("name")).cloned().unwrap_or(Value::String(k.clone())),
+                "desc": frow.and_then(|f| f.get("desc")).cloned().unwrap_or(Value::Null),
+                "descEn": frow.and_then(|f| f.get("descEn")).cloned().unwrap_or(Value::Null),
+                "options": options.into_iter().map(|(l, v)| json!({ "label": l, "value": v })).collect::<Vec<_>>(),
+                "current": current,
+                "isOverride": is_override,
             })
         })
         .collect();
-    json!({ "chapter": config::current_chapter(&state.mod_root), "items": items })
+    json!({ "chapter": chapter, "items": items })
 }
 
 #[derive(serde::Deserialize)]

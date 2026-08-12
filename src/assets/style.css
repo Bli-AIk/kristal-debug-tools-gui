@@ -459,32 +459,35 @@ input:focus, select:focus { outline: none; border-color: var(--yellow); }
   overflow-y: auto;
 }
 .chapter-config-list.wide .cc-row {
-  grid-template-columns: 230px 1fr auto auto;
+  grid-template-columns: 1fr auto;
 }
 .cc-row {
   display: grid;
-  grid-template-columns: 150px 1fr auto auto;
-  gap: 10px;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
   align-items: center;
-  padding: 6px 4px;
+  padding: 8px 4px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.12);
   font-size: 0.85rem;
 }
 .cc-row:last-child { border-bottom: none; }
-.cc-key { font-family: var(--font-bold); }
-.cc-desc { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cc-chips { display: flex; gap: 3px; }
-.cc-chip {
-  border: 1px solid rgba(255, 255, 255, 0.35);
-  padding: 0 4px;
-  font-size: 0.75rem;
-  color: var(--dim);
-  white-space: nowrap;
+/* Option name (from Kristal's mod config) + grey description. */
+.cc-name { font-size: 0.95rem; }
+.cc-desc { color: var(--muted); font-size: 0.85rem; }
+.cc-control { display: flex; gap: 8px; align-items: center; justify-content: flex-end; flex-wrap: wrap; }
+.cc-pair { display: flex; gap: 6px; }
+.cc-value { color: var(--dim); }
+.cc-select {
+  background: #000;
+  color: var(--text);
+  border: 2px solid var(--text);
+  padding: 0.2em 0.5em;
+  font-family: inherit;
+  font-size: 0.85rem;
 }
-.cc-chip.cur { border-color: var(--yellow); color: var(--yellow); }
+.cc-saved { display: flex; gap: 6px; align-items: center; }
+.cc-saved .ok { color: var(--gold); font-size: 0.8rem; }
 .chapter-buttons { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.cc-override { display: flex; gap: 5px; align-items: center; justify-content: flex-end; }
-.cc-override input { width: 90px; padding: 1px 5px; font-size: 0.8rem; }
 
 /* --- runs log --- */
 
