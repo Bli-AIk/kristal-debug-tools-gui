@@ -1,0 +1,431 @@
+/*
+ * Deltarune-style UI, replicating the visual language of the Kristal website
+ * (github.com/KristalTeam/Shadow and its zh fork): pixel font, black
+ * translucent panels with a white "broken" border, yellow hover accents, no
+ * rounded corners.
+ *
+ * Fonts (vendored under fonts/):
+ *  - 8-bit Operator+ (free for commercial use, © 8bitoperator)
+ *  - kristal-zh-main-fallback.ttf — "FZBitmap_18030_11X12" CJK bitmap font,
+ *    the same fallback the Kristal zh site uses for Chinese (see
+ *    Shadow-ZH-Fork's @font-face declaration). Sizes are rem-based and
+ *    scaled to the display DPI by app.js (documentElement font-size).
+ */
+
+@font-face {
+  font-family: "8bitOperatorPlus-Regular";
+  src: url("/fonts/8bitOperatorPlus-Regular.woff") format("woff");
+  font-weight: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "8bitOperatorPlus-Bold";
+  src: url("/fonts/8bitOperatorPlus-Bold.woff") format("woff");
+  font-weight: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "KristalZhFallback";
+  src: url("/fonts/kristal-zh-main-fallback.ttf") format("truetype");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --font-regular: "8bitOperatorPlus-Regular", "KristalZhFallback", monospace;
+  --font-bold: "8bitOperatorPlus-Bold", "KristalZhFallback", monospace;
+}
+
+:root {
+  --bg-black: #000;
+  --band-blue: #00328E;
+  --panel: rgba(0, 0, 0, 0.75);
+  --panel-dim: rgba(0, 0, 0, 0.5);
+  --text: #fff;
+  --yellow: #ffff00;
+  --cyan: #00c8c8;
+  --cyan-bright: #00ffff;
+  --danger: #ed1c24;
+  --orange: #ffa040;
+  --gold: #ffd020;
+  --muted: #aaa;
+  --dim: #ddd;
+}
+
+* { box-sizing: border-box; }
+
+/* The hidden attribute must win over display: grid/flex on the views. */
+[hidden] { display: none !important; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+  /* The Shadow site's background: the black -> deep-blue band gradient,
+   * with the animated dark-world apng (vendored under assets/,
+   * © Kristal Team / NyakoFox) centered on top. */
+  background: linear-gradient(to bottom, var(--bg-black) 94.2%, var(--band-blue) 94.2%) fixed;
+  background-attachment: fixed;
+  background-color: var(--bg-black);
+}
+
+/* The apng sits on its own fixed layer so image-rendering: pixelated (the
+ * site's crisp scaled look) does not leak into the borders above it. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: no-repeat center / auto 100% url("/assets/background.apng");
+  background-attachment: fixed;
+  image-rendering: pixelated;
+}
+
+/* All sizes are rem so app.js can scale the whole UI with CSS zoom
+ * (WebKit-native): zoom scales fonts, borders and paddings together, which
+ * keeps the layout proportional on HiDPI screens and avoids the DPR
+ * mismatch (desktop scale 1 on a 192-DPI panel reports devicePixelRatio 1,
+ * so a pure font-size scale would leave borders/edges at their old size). */
+body {
+  font-family: var(--font-regular);
+  font-size: 1rem;
+  color: var(--text);
+  text-shadow: 0.125em 0.125em #000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 100vh;
+}
+
+h1, h2, strong, b { font-family: var(--font-bold); font-weight: normal; }
+
+h2 {
+  color: var(--yellow);
+  font-size: 1.4rem;
+  margin: 0;
+  letter-spacing: 1px;
+}
+
+a { color: var(--cyan); text-decoration: none; }
+a:hover { color: var(--cyan-bright); text-decoration: underline; }
+
+/* --- top bar --- */
+
+.navbar {
+  position: relative;
+  width: 100%;
+  background: var(--bg-black);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+  border-bottom: 2px solid rgba(255, 255, 255, 0.25);
+  z-index: 2;
+}
+.nav-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 5px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.title {
+  font-family: var(--font-bold);
+  font-size: 1.1rem;
+  letter-spacing: 1px;
+}
+.nav-right { display: flex; gap: 10px; align-items: center; }
+.scale-group { display: flex; align-items: center; gap: 8px; }
+.scale-label { font-size: 0.85rem; color: var(--muted); min-width: 42px; text-align: center; }
+
+/* --- status bar --- */
+
+.statusbar {
+  position: relative;
+  width: 100%;
+  max-width: 1100px;
+  padding: 8px 8px 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  font-size: 0.9rem;
+  color: var(--text);
+  z-index: 2;
+}
+/* Only genuine errors stand out. */
+.statusbar .bad { color: var(--danger); }
+.flash { color: var(--yellow); }
+.flash.err { color: var(--danger); }
+
+/* --- layout --- */
+
+.layout {
+  position: relative;
+  width: 100%;
+  max-width: 1100px;
+  padding: 18px 24px 40px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  z-index: 1;
+  /* Grow to fill the viewport so the footer sits at the bottom. */
+  flex: 1;
+  align-content: start;
+}
+@media (max-width: 860px) { .layout { grid-template-columns: 1fr; } }
+
+.col { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+
+/* --- panels: the Deltarune broken border (original SVG drawing) --- */
+
+.broken-box {
+  border: 4px solid transparent;
+  border-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath d='M2 3H10M14 3H22M21 6V10M21 14V18M22 21H14M10 21H2M3 18V14M3 10V6' stroke='white' stroke-width='4' stroke-linecap='square' fill='none'/%3E%3C/svg%3E") 8 round;
+  border-image-outset: 4px;
+  background-color: var(--panel);
+  padding: 1.5rem min(2rem, 5vw);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Collapsible panels (the advanced run list): a header row that toggles
+ * the content, with a small pixel triangle marker. */
+details.broken-box summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+details.broken-box summary::-webkit-details-marker { display: none; }
+details.broken-box summary::after {
+  content: "\25B6"; /* ▸ */
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+details[open].broken-box summary::after { content: "\25BE"; } /* ▾ */
+details.broken-box summary:hover::after { color: var(--yellow); }
+
+/* --- buttons & inputs (Shadow's square style) --- */
+
+.btn {
+  background: transparent;
+  border: 2px solid var(--text);
+  border-radius: 0;
+  color: var(--text);
+  font-family: var(--font-bold);
+  font-size: 1rem;
+  padding: 0.35em 0.9em;
+  cursor: pointer;
+  text-shadow: 0.125em 0.125em #000;
+}
+.btn:hover { color: var(--yellow); border-color: var(--yellow); }
+.btn.small { padding: 0.15em 0.6em; font-size: 0.85rem; }
+.btn.big { font-size: 1.2rem; padding: 0.5em 1.3em; }
+.btn.danger:hover { color: var(--danger); border-color: var(--danger); }
+.btn.armed { color: var(--danger); border-color: var(--danger); }
+.btn.armed:hover { color: var(--text); border-color: var(--text); }
+.btn.applied { color: #00ff00; border-color: #00ff00; }
+.btn.pending { color: var(--yellow); border-color: var(--yellow); }
+.btn:disabled { opacity: 0.4; cursor: default; }
+.btn:disabled:hover { color: var(--text); border-color: var(--text); }
+
+input[type="text"], input:not([type]), select {
+  background: rgba(0, 0, 0, 0.6);
+  border: 2px solid var(--text);
+  border-radius: 0;
+  color: var(--text);
+  font-family: var(--font-regular);
+  font-size: 0.95rem;
+  padding: 0.25em 0.5em;
+  width: 100%;
+  text-shadow: 0.125em 0.125em #000;
+}
+/* Kill WebKit's native select appearance (pure white) and draw the dark
+ * control + a small pixel arrow instead. */
+select {
+  -webkit-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0h10L5 6z' fill='white'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.5em center;
+  padding-right: 2em;
+}
+select option { background: #000; color: var(--text); }
+input:focus, select:focus { outline: none; border-color: var(--yellow); }
+
+/* --- forms --- */
+
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 14px;
+}
+.form-grid label { display: flex; flex-direction: column; gap: 4px; font-size: 0.85rem; color: var(--dim); }
+.form-grid label.wide { grid-column: 1 / -1; }
+.form-grid input { margin-top: 2px; }
+
+.launch-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.hint { font-size: 0.85rem; color: var(--muted); margin: 0; }
+.hint.err { color: var(--danger); }
+
+/* --- task list --- */
+
+.task-list { display: flex; flex-direction: column; gap: 2px; }
+
+.task-group {
+  font-family: var(--font-bold);
+  color: var(--cyan);
+  font-size: 0.9rem;
+  padding: 10px 6px 2px;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.3);
+  margin-top: 6px;
+}
+
+.task-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 8px 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+}
+.task-row:last-child { border-bottom: none; }
+.task-row:hover { background: rgba(255, 255, 255, 0.06); }
+
+.task-name { font-family: var(--font-bold); font-size: 1.05rem; min-width: 120px; }
+.task-name .alias { color: var(--cyan); font-size: 0.8rem; }
+.task-doc { color: var(--muted); font-size: 0.85rem; flex: 1 1 100%; }
+.task-params { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; flex: 1 1 200px; }
+.task-params label { display: flex; align-items: center; gap: 5px; font-size: 0.85rem; color: var(--dim); }
+.task-params input[type="text"], .task-params input:not([type]) { width: 110px; padding: 0.15em 0.4em; font-size: 0.85rem; }
+.task-params input[type="checkbox"] { accent-color: var(--yellow); width: 14px; height: 14px; }
+.flag-input { display: none; }
+.flag-input.on { display: inline-block; }
+
+/* --- terminal --- */
+
+.terminal-panel { min-height: 320px; }
+.terminal {
+  margin: 0;
+  background: #000;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  padding: 10px 12px;
+  min-height: 240px;
+  max-height: 46vh;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: var(--text);
+  text-shadow: none;
+}
+.terminal .err { color: var(--danger); }
+.terminal .okline { color: var(--cyan); }
+.terminal .excline { color: var(--yellow); }
+.terminal .excline.bad { color: var(--danger); }
+
+/* --- project info --- */
+
+.project-info { display: flex; flex-direction: column; gap: 0.3em; }
+.proj-name { font-family: var(--font-bold); font-size: 1.15rem; }
+.proj-sub { color: var(--muted); font-size: 0.85rem; }
+.proj-libs { margin-top: 0.4em; color: var(--dim); font-size: 0.85rem; }
+.proj-list { margin: 0.2em 0 0; padding-left: 1.4em; display: flex; flex-direction: column; gap: 0.15em; }
+.proj-list .lib-id { color: var(--text); }
+.proj-list .lib-ver { color: var(--muted); font-size: 0.85em; }
+
+/* --- chapter config --- */
+
+.chapter-page {
+  position: relative;
+  width: 100%;
+  max-width: 1100px;
+  margin: 18px auto 40px;
+  z-index: 1;
+}
+.chapter-config-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+.chapter-config-list.wide .cc-row {
+  grid-template-columns: 230px 1fr auto auto;
+}
+.cc-row {
+  display: grid;
+  grid-template-columns: 150px 1fr auto auto;
+  gap: 10px;
+  align-items: center;
+  padding: 6px 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: 0.85rem;
+}
+.cc-row:last-child { border-bottom: none; }
+.cc-key { font-family: var(--font-bold); }
+.cc-desc { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cc-chips { display: flex; gap: 3px; }
+.cc-chip {
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  padding: 0 4px;
+  font-size: 0.75rem;
+  color: var(--dim);
+  white-space: nowrap;
+}
+.cc-chip.cur { border-color: var(--yellow); color: var(--yellow); }
+.chapter-buttons { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.cc-override { display: flex; gap: 5px; align-items: center; justify-content: flex-end; }
+.cc-override input { width: 90px; padding: 1px 5px; font-size: 0.8rem; }
+
+/* --- runs log --- */
+
+.runs-log { display: flex; flex-direction: column; gap: 2px; max-height: 260px; overflow-y: auto; }
+.run-entry {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 0.85rem;
+  padding: 0.35em 0.4em;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+.run-entry:last-child { border-bottom: none; }
+.run-entry .r-label { font-family: var(--font-bold); color: var(--text); min-width: 90px; }
+.run-entry .r-cmd { color: var(--muted); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.run-entry .r-meta { color: var(--muted); white-space: nowrap; }
+.run-entry .r-code.ok { color: #00ff00; }
+.run-entry .r-code.bad { color: var(--danger); }
+.run-entry .r-code.run { color: var(--orange); }
+
+/* --- footer --- */
+
+.footer {
+  position: relative;
+  width: 100%;
+  padding: 12px 24px 20px;
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--muted);
+  background: rgba(0, 0, 0, 0.5);
+  border-top: 2px solid rgba(255, 255, 255, 0.15);
+  z-index: 2;
+}
+
+/* --- scrollbars --- */
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.6); }
+::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.35); }
+::-webkit-scrollbar-thumb:hover { background: var(--yellow); }
