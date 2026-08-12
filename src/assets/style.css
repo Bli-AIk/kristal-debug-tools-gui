@@ -489,9 +489,14 @@ input:focus, select:focus { outline: none; border-color: var(--yellow); }
   color: #2f7d32;
   border-color: #2f7d32;
 }
+/* Preview value: same control look as the select/input, just yellow. */
 .cc-preview {
+  background: #000;
   color: var(--yellow);
-  font-size: 0.8rem;
+  border: 2px solid var(--yellow);
+  padding: 0.2em 0.5em;
+  font-size: 0.85rem;
+  font-family: inherit;
   white-space: nowrap;
 }
 .cc-edit {
