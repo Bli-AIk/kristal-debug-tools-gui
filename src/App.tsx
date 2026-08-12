@@ -140,9 +140,12 @@ export default function App() {
   const addRun = (label: string, command: string) =>
     setRuns((rs) => [{ id: rs.length + 1, label, command }, ...rs].slice(0, 50));
 
-  // Settings: language + "keep the task terminal open after it finishes".
+  // Settings: language + "keep the task terminal open after it finishes"
+  // + compile-only launch mode (.tools/gui/.mode).
   const [menuOpen, setMenuOpen] = useState(false);
   const [keepOpen, setKeepOpen] = useState(localStorage.getItem("kdt-keepopen") === "1");
+  const [compileOnly, setCompileOnly] = useState(false);
+  useEffect(() => { if (status) setCompileOnly(status.guiMode ?? false); }, [status]);
 
   const overrideCount =
     chapterConfig?.items.filter((i) => i.override !== null && i.override !== undefined).length ?? 0;
@@ -183,10 +186,11 @@ export default function App() {
                   </label>
                   <label className="set-row check">
                     <span>{t("compileOnly")}</span>
-                    <input type="checkbox" checked={status?.guiMode ?? false}
+                    <input type="checkbox" checked={compileOnly}
                       onChange={(e) => {
+                        setCompileOnly(e.target.checked);
                         invoke("set_gui_mode", { compile: e.target.checked })
-                          .catch((err) => showFlash(String(err), true));
+                          .catch((err) => { setCompileOnly(!e.target.checked); showFlash(String(err), true); });
                       }} />
                   </label>
                 </div>
