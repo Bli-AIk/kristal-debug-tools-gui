@@ -478,7 +478,7 @@ input:focus, select:focus { outline: none; border-color: var(--yellow); }
 /* Option name (from Kristal's mod config) + grey description. */
 .cc-name { font-size: 0.95rem; }
 .cc-desc { color: var(--muted); font-size: 0.85rem; }
-.cc-control { display: flex; gap: 8px; align-items: center; justify-content: flex-end; flex-wrap: wrap; }
+.cc-control { display: flex; gap: 8px; align-items: center; justify-content: flex-end; }
 .cc-pair { display: flex; gap: 6px; }
 .cc-value { color: var(--dim); }
 .cc-select.pending { border-color: var(--yellow); }
