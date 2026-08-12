@@ -46,7 +46,7 @@ fn just_runner(app: &tauri::AppHandle) -> Option<(PathBuf, tasks::JustSource)> {
 
 /// All GUI settings live in one JSON file, shared with the launcher
 /// scripts: <mod-root>/.tools/gui/settings.json
-/// { lang, scale, keepOpen, mode: "compile"|"bin" }
+/// { lang, scale, keepOpen }
 fn settings_file(state: &AppState) -> PathBuf {
     state.mod_root.join(".tools").join("gui").join("settings.json")
 }
@@ -96,7 +96,6 @@ pub fn status(app: tauri::AppHandle, state: State<AppState>) -> Value {
         "template": config::detect_template(&state.mod_root),
         "os": std::env::consts::OS,
         "arch": std::env::consts::ARCH,
-        "guiMode": read_settings(&state).get("mode").and_then(|m| m.as_str()) == Some("compile"),
         "settings": read_settings(&state),
     })
 }

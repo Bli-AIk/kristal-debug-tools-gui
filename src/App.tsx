@@ -34,7 +34,6 @@ const I18N: Record<string, Record<string, string>> = {
     run: "运行", refresh: "刷新",
     otherConfig: "其他配置", encounterEmpty: "留空为无",
     settings: "设置", language: "语言", keepOpen: "任务运行完保持窗口打开",
-    compileOnly: "仅本地编译模式（下次启动生效）",
   },
   en: {
     tasks: "RUN LIST (ADVANCED)", launch: "LAUNCH GAME", runs: "RUNS",
@@ -57,7 +56,6 @@ const I18N: Record<string, Record<string, string>> = {
     run: "RUN", refresh: "REFRESH",
     otherConfig: "OTHER CONFIG", encounterEmpty: "empty = none",
     settings: "SETTINGS", language: "LANGUAGE", keepOpen: "keep the task window open after it finishes",
-    compileOnly: "compile from source only (next launch)",
   },
 };
 
@@ -76,7 +74,6 @@ interface Status {
   libraries?: { id: string; version?: string }[];
   template?: { isTemplate: boolean; name?: string; chapter?: number } | null;
   os: string; arch: string;
-  guiMode?: boolean;
   settings?: Record<string, unknown>;
 }
 interface TaskItem {
@@ -152,16 +149,14 @@ export default function App() {
   const addRun = (label: string, command: string) =>
     setRuns((rs) => [{ id: rs.length + 1, label, command }, ...rs].slice(0, 50));
 
-  // Settings: language + "keep the task terminal open after it finishes"
-  // + compile-only launch mode — all in .tools/gui/settings.json.
+  // Settings: language + "keep the task terminal open after it finishes",
+  // stored in .tools/gui/settings.json.
   const [menuOpen, setMenuOpen] = useState(false);
   const [keepOpen, setKeepOpen] = useState(false);
-  const [compileOnly, setCompileOnly] = useState(false);
   useEffect(() => {
     const s = status?.settings;
     if (!s) return;
     setKeepOpen(s.keepOpen === true);
-    setCompileOnly(s.mode === "compile");
     if (typeof s.lang === "string" && s.lang !== lang) {
       lang = s.lang;
       refresh();
@@ -203,15 +198,6 @@ export default function App() {
                       onChange={(e) => {
                         setKeepOpen(e.target.checked);
                         invoke("set_settings", { patch: { keepOpen: e.target.checked } }).catch(() => {});
-                      }} />
-                  </label>
-                  <label className="set-row check">
-                    <span>{t("compileOnly")}</span>
-                    <input type="checkbox" checked={compileOnly}
-                      onChange={(e) => {
-                        setCompileOnly(e.target.checked);
-                        invoke("set_settings", { patch: { mode: e.target.checked ? "compile" : "bin" } })
-                          .catch((err) => { setCompileOnly(!e.target.checked); showFlash(String(err), true); });
                       }} />
                   </label>
                 </div>
