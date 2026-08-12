@@ -346,6 +346,8 @@ input:focus, select:focus { outline: none; border-color: var(--yellow); }
 }
 .task-row:last-child { border-bottom: none; }
 .task-row:hover { background: rgba(255, 255, 255, 0.06); }
+/* Run buttons share one right-aligned column across all rows. */
+.task-row > .btn { margin-left: auto; }
 
 .task-name { font-family: var(--font-bold); font-size: 1.05rem; min-width: 120px; }
 .task-name .alias { color: var(--cyan); font-size: 0.8rem; }
