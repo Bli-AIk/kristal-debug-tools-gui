@@ -1,0 +1,238 @@
+[
+ {
+  "key": "enableStorage",
+  "desc": "额外 48 格物品栏",
+  "ch1": "否",
+  "ch2": "是"
+ },
+ {
+  "key": "smallSaveMenu",
+  "desc": "不含仓库/招募选项的单文件存档菜单",
+  "ch1": "是",
+  "ch2": "否"
+ },
+ {
+  "key": "partyActions",
+  "desc": "X-Actions 是否默认显示在法术菜单中",
+  "ch1": "否",
+  "ch2": "是"
+ },
+ {
+  "key": "growStronger",
+  "desc": "用暴力击败敌人后提升属性",
+  "ch1": "否",
+  "ch2": "是"
+ },
+ {
+  "key": "growStrongerChara",
+  "desc": "会在队伍中变强的角色",
+  "ch1": "未设置",
+  "ch2": "\"noelle\""
+ },
+ {
+  "key": "susieStyle",
+  "desc": "Susie 使用的精灵图组",
+  "ch1": "1",
+  "ch2": "2"
+ },
+ {
+  "key": "ralseiStyle",
+  "desc": "Ralsei 使用的精灵图组",
+  "ch1": "1",
+  "ch2": "2"
+ },
+ {
+  "key": "oldTensionBar",
+  "desc": "TP 条是否使用方角",
+  "ch1": "是",
+  "ch2": "否"
+ },
+ {
+  "key": "oldUIPositions",
+  "desc": "是否使用第 1 章的 UI 位置",
+  "ch1": "是",
+  "ch2": "否"
+ },
+ {
+  "key": "oldGameOver",
+  "desc": "是否使用第 1 章的 Game Over 界面",
+  "ch1": "是",
+  "ch2": "否"
+ },
+ {
+  "key": "targetSystem",
+  "desc": "战斗是否使用瞄准系统",
+  "ch1": "是",
+  "ch2": "否"
+ },
+ {
+  "key": "speechBubble",
+  "desc": "敌人对话气泡的默认样式",
+  "ch1": "\"圆形\"",
+  "ch2": "\"赛博\""
+ },
+ {
+  "key": "enemyAuras",
+  "desc": "敌人周围的红色光环",
+  "ch1": "否",
+  "ch2": "是"
+ },
+ {
+  "key": "mercyMessages",
+  "desc": "敌人的怜悯度提升时是否显示 +X%",
+  "ch1": "否",
+  "ch2": "是"
+ },
+ {
+  "key": "mercyBar",
+  "desc": "是否显示怜悯条",
+  "ch1": "否",
+  "ch2": "是"
+ },
+ {
+  "key": "enemyBarPercentages",
+  "desc": "HP 和怜悯条是否显示百分比",
+  "ch1": "否",
+  "ch2": "是"
+ },
+ {
+  "key": "prioritySpareableText",
+  "desc": "敌人的可饶恕文本是否优先于疲劳/低生命值文本",
+  "ch1": "是",
+  "ch2": "否"
+ },
+ {
+  "key": "pushBlockInputLock",
+  "desc": "推动方块时是否会锁定玩家输入",
+  "ch1": "是",
+  "ch2": "是"
+ },
+ {
+  "key": "keepTensionAfterBattle",
+  "desc": "战斗后是否保留 TP，而不是重置",
+  "ch1": "否",
+  "ch2": "否"
+ },
+ {
+  "key": "overworldSpells",
+  "desc": "法术是否可在主世界使用",
+  "ch1": "是",
+  "ch2": "否"
+ },
+ {
+  "key": "damageUnderflowFix",
+  "desc": "禁用后，负数伤害会治疗敌人",
+  "ch1": "是",
+  "ch2": "是"
+ },
+ {
+  "key": "darkCurrency",
+  "desc": "暗世界的货币全名",
+  "ch1": "\"黑暗币\"",
+  "ch2": "\"黑暗币\""
+ },
+ {
+  "key": "darkCurrencyShort",
+  "desc": "暗世界的货币简称",
+  "ch1": "\"D$\"",
+  "ch2": "\"D$\""
+ },
+ {
+  "key": "lightCurrency",
+  "desc": "光世界的货币全名",
+  "ch1": "\"Money\"",
+  "ch2": "\"Money\""
+ },
+ {
+  "key": "lightCurrencyShort",
+  "desc": "光世界的货币简称",
+  "ch1": "\"$\"",
+  "ch2": "\"$\""
+ },
+ {
+  "key": "tpName",
+  "desc": "战斗中的紧迫点数名称",
+  "ch1": "\"TP\"",
+  "ch2": "\"TP\""
+ },
+ {
+  "key": "awakeMessages",
+  "desc": "敌人醒来时显示解除饶恕提示消息"
+ },
+ {
+  "key": "canTossLightWeapons",
+  "desc": "光世界武器是否可以被丢弃"
+ },
+ {
+  "key": "checkActDescription",
+  "desc": "战斗中“检查”动作是否显示“无用的分析”"
+ },
+ {
+  "key": "darkCandyForm",
+  "desc": "使用 Dark Candy 还是 Darker Candy"
+ },
+ {
+  "key": "darkTextboxStyle",
+  "desc": "暗世界默认的文本框样式"
+ },
+ {
+  "key": "defaultInvulnTime",
+  "desc": "默认无敌时间"
+ },
+ {
+  "key": "enableRecruits",
+  "desc": "启用招募消息与招募菜单"
+ },
+ {
+  "key": "healthConversion",
+  "desc": "切换光/暗世界时是否（正确地）转换生命值"
+ },
+ {
+  "key": "lessEquipments",
+  "desc": "减少物品栏中可用的武器和防具槽位"
+ },
+ {
+  "key": "lightTextboxStyle",
+  "desc": "光世界默认的文本框样式"
+ },
+ {
+  "key": "newShopSpaceUI",
+  "desc": "商店是否使用同时显示物品栏与仓库空间的新空间显示"
+ },
+ {
+  "key": "oldDualHealFormula",
+  "desc": "使用旧版 Dual Heal 回复量计算"
+ },
+ {
+  "key": "oldPacify",
+  "desc": "移除安抚（Pacify）魔法的动画"
+ },
+ {
+  "key": "oldRudeBuster",
+  "desc": "使用旧版 Rude Buster 伤害计算与效果"
+ },
+ {
+  "key": "pacifyGlow",
+  "desc": "敌人疲劳时安抚（及其他魔法）是否发光"
+ },
+ {
+  "key": "recruitsProgressSpaces",
+  "desc": "招募进度菜单中的数字之间是否显示空格"
+ },
+ {
+  "key": "shopSpaceUIFont",
+  "desc": "商店空间 UI 数字使用的字体"
+ },
+ {
+  "key": "soulInvBetweenWaves",
+  "desc": "灵魂无敌状态是否在战斗波次之间延续"
+ },
+ {
+  "key": "storageSlots",
+  "desc": "暗世界物品栏的额外仓库格数"
+ },
+ {
+  "key": "tiredMessages",
+  "desc": "敌人疲劳时显示疲劳提示消息"
+ }
+]

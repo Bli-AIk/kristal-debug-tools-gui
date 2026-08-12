@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    cta_gui_lib::run()
+    kristal_debug_tools_gui_lib::run()
 }

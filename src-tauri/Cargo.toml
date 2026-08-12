@@ -1,8 +1,8 @@
 [package]
-name = "cta-gui"
+name = "kristal-debug-tools-gui"
 version = "0.1.0"
-description = "A Tauri App"
-authors = ["you"]
+description = "Deltarune-style GUI for kristal-debug-tools"
+authors = ["Bli_Aik"]
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -11,8 +11,14 @@ edition = "2021"
 # The `_lib` suffix may seem redundant but it is necessary
 # to make the lib name unique and wouldn't conflict with the bin name.
 # This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
-name = "cta_gui_lib"
+name = "kristal_debug_tools_gui_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
+
+# CLI sidecar: game launcher + just-task/just-dump. Console subsystem
+# (default) so it works inside interactive terminal windows on Windows.
+[[bin]]
+name = "kristal-run"
+path = "src/bin/kristal-run.rs"
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
@@ -22,4 +28,6 @@ tauri = { version = "2", features = [] }
 tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+regex = "1.13.1"
+just = "1.58.0"
 

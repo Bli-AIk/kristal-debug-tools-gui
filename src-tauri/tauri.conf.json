@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "cta-gui",
+  "productName": "Kristal Debug Tools",
   "version": "0.1.0",
-  "identifier": "com.aik.cta-gui",
+  "identifier": "com.bliaik.kristal-debug-tools-gui",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -12,9 +12,9 @@
   "app": {
     "windows": [
       {
-        "title": "cta-gui",
-        "width": 800,
-        "height": 600
+        "title": "Kristal Debug Tools",
+        "width": 900,
+        "height": 640
       }
     ],
     "security": {
@@ -24,6 +24,9 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "externalBin": [
+      "binaries/kristal-run"
+    ],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
