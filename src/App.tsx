@@ -370,6 +370,7 @@ function LaunchPanel({ status, onLaunch }: { status: Status | null; onLaunch: (o
 function InitPanel({ onInit }: { onInit: (name: string) => void }) {
   const [name, setName] = useState("");
   const [armed, setArmed] = useState(false);
+  const [done, setDone] = useState(false);
   const timer = useRef(0);
 
   const click = () => {
@@ -381,6 +382,9 @@ function InitPanel({ onInit }: { onInit: (name: string) => void }) {
       return;
     }
     setArmed(false);
+    setDone(true);
+    window.clearTimeout(timer.current);
+    timer.current = window.setTimeout(() => setDone(false), 3000);
     onInit(name.trim());
   };
 
@@ -395,7 +399,7 @@ function InitPanel({ onInit }: { onInit: (name: string) => void }) {
       </div>
       <div className="launch-row">
         <button className={"btn big" + (armed ? " armed" : "")} onClick={click}>
-          ★ {armed ? t("initConfirm") : t("initBtn")}
+          ★ {done ? (lang === "zh" ? "星之 行者" : "Star Walker") : armed ? t("initConfirm") : t("initBtn")}
         </button>
       </div>
     </div>
