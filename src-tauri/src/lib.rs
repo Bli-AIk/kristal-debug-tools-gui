@@ -47,7 +47,7 @@ pub fn run() {
         .manage(resolve_state())
         .invoke_handler(tauri::generate_handler![
             commands::status,
-            commands::set_gui_mode,
+            commands::set_settings,
             commands::tasks,
             commands::run_task,
             commands::launch_game,

@@ -11,7 +11,7 @@ const I18N: Record<string, Record<string, string>> = {
     initProject: "项目初始化", projectName: "项目名", initBtn: "初始化项目", initConfirm: "再次点击确认",
     initDone: "初始化已在终端窗口启动，完成后建议重启 GUI", initFail: "初始化失败",
     customConfig: "自定义配置", configure: "配置", chapterConfig: "章节预设",
-    currentChapter: "当前章节", overridesActive: "项配置覆盖生效中", noOverrides: "无配置覆盖（用默认值）",
+    currentChapter: "当前章节预设", overridesActive: "项配置覆盖生效中", noOverrides: "无配置覆盖（用默认值）",
     fLang: "语言", fEncounter: "遭遇", fWave: "波次", fWaveForce: "强制波次",
     fTp: "初始 TP", fMercy: "初始 mercy", fExtra: "额外参数",
     love: "love", engine: "引擎", mod: "模组", just: "just", justEmbedded: "内置 (just crate)",
@@ -32,7 +32,7 @@ const I18N: Record<string, Record<string, string>> = {
     initProject: "INITIALIZE PROJECT", projectName: "PROJECT NAME", initBtn: "INITIALIZE", initConfirm: "CLICK AGAIN TO CONFIRM",
     initDone: "initialization started in a terminal window — restart the GUI when done", initFail: "init failed",
     customConfig: "CUSTOM CONFIG", configure: "CONFIGURE", chapterConfig: "CHAPTER PRESETS",
-    currentChapter: "CURRENT CHAPTER", overridesActive: "overrides active", noOverrides: "no overrides (defaults)",
+    currentChapter: "CURRENT PRESET", overridesActive: "overrides active", noOverrides: "no overrides (defaults)",
     fLang: "LANGUAGE", fEncounter: "ENCOUNTER", fWave: "WAVE", fWaveForce: "WAVE FORCE",
     fTp: "TP", fMercy: "MERCY", fExtra: "EXTRA ARGS",
     love: "love", engine: "engine", mod: "mod", just: "just", justEmbedded: "builtin (just crate)",
@@ -49,8 +49,8 @@ const I18N: Record<string, Record<string, string>> = {
   },
 };
 
-let lang = (localStorage.getItem("kdt-lang") ||
-  (navigator.language?.toLowerCase().startsWith("zh") ? "zh" : "en")) as string;
+// Settings live in .tools/gui/settings.json (loaded via status.settings).
+let lang = (navigator.language?.toLowerCase().startsWith("zh") ? "zh" : "en") as string;
 const t = (key: string) => I18N[lang]?.[key] ?? I18N.en[key] ?? key;
 
 /* ---------- types ---------- */
@@ -65,6 +65,7 @@ interface Status {
   template?: { isTemplate: boolean; name?: string; chapter?: number } | null;
   os: string; arch: string;
   guiMode?: boolean;
+  settings?: Record<string, unknown>;
 }
 interface TaskItem {
   name: string; doc?: string; private?: boolean;
@@ -111,37 +112,44 @@ export default function App() {
   useEffect(() => { loadAll(); }, [loadAll]);
 
   // High-DPI aware zoom: default scales with devicePixelRatio (>= 1.25,
-  // capped at 1.6), user-adjustable via A−/A+ and persisted. Mirrors the
-  // old GUI's DPR handling.
+  // capped at 1.6), user-adjustable via A−/A+ and persisted in settings.
   const [scaleLabel, setScaleLabel] = useState("");
   const dprScale = () => {
     const dpr = window.devicePixelRatio || 1;
     return Math.min(1.6, Math.max(1.25, 0.6 + dpr * 0.5));
   };
-  const storedScale = () => {
-    const s = parseFloat(localStorage.getItem("kdt-scale") ?? "");
-    return s >= 0.75 && s <= 3 ? s : dprScale();
-  };
   useEffect(() => {
-    document.documentElement.style.zoom = storedScale().toFixed(3);
-    setScaleLabel(Math.round(storedScale() * 100) + "%");
-  }, []);
+    const s = parseFloat(String(status?.settings?.scale ?? ""));
+    const v = s >= 0.75 && s <= 3 ? s : dprScale();
+    document.documentElement.style.zoom = v.toFixed(3);
+    setScaleLabel(Math.round(v * 100) + "%");
+  }, [status]);
   const setScale = (delta: number) => {
-    const s = Math.min(3, Math.max(0.75, storedScale() + delta));
-    localStorage.setItem("kdt-scale", String(s));
+    const cur = parseFloat(document.documentElement.style.zoom) || dprScale();
+    const s = Math.min(3, Math.max(0.75, cur + delta));
     document.documentElement.style.zoom = s.toFixed(3);
     setScaleLabel(Math.round(s * 100) + "%");
+    invoke("set_settings", { patch: { scale: s } }).catch(() => {});
   };
 
   const addRun = (label: string, command: string) =>
     setRuns((rs) => [{ id: rs.length + 1, label, command }, ...rs].slice(0, 50));
 
   // Settings: language + "keep the task terminal open after it finishes"
-  // + compile-only launch mode (.tools/gui/.mode).
+  // + compile-only launch mode — all in .tools/gui/settings.json.
   const [menuOpen, setMenuOpen] = useState(false);
-  const [keepOpen, setKeepOpen] = useState(localStorage.getItem("kdt-keepopen") === "1");
+  const [keepOpen, setKeepOpen] = useState(false);
   const [compileOnly, setCompileOnly] = useState(false);
-  useEffect(() => { if (status) setCompileOnly(status.guiMode ?? false); }, [status]);
+  useEffect(() => {
+    const s = status?.settings;
+    if (!s) return;
+    setKeepOpen(s.keepOpen === true);
+    setCompileOnly(s.mode === "compile");
+    if (typeof s.lang === "string" && s.lang !== lang) {
+      lang = s.lang;
+      refresh();
+    }
+  }, [status]);
 
   const overrideCount =
     chapterConfig?.items.filter((i) => i.isOverride).length ?? 0;
@@ -165,7 +173,7 @@ export default function App() {
                     <span>{t("language")}</span>
                     <select value={lang} onChange={(e) => {
                       lang = e.target.value;
-                      localStorage.setItem("kdt-lang", lang);
+                      invoke("set_settings", { patch: { lang } }).catch(() => {});
                       refresh();
                     }}>
                       <option value="zh">中文</option>
@@ -177,7 +185,7 @@ export default function App() {
                     <input type="checkbox" checked={keepOpen}
                       onChange={(e) => {
                         setKeepOpen(e.target.checked);
-                        localStorage.setItem("kdt-keepopen", e.target.checked ? "1" : "0");
+                        invoke("set_settings", { patch: { keepOpen: e.target.checked } }).catch(() => {});
                       }} />
                   </label>
                   <label className="set-row check">
@@ -185,7 +193,7 @@ export default function App() {
                     <input type="checkbox" checked={compileOnly}
                       onChange={(e) => {
                         setCompileOnly(e.target.checked);
-                        invoke("set_gui_mode", { compile: e.target.checked })
+                        invoke("set_settings", { patch: { mode: e.target.checked ? "compile" : "bin" } })
                           .catch((err) => { setCompileOnly(!e.target.checked); showFlash(String(err), true); });
                       }} />
                   </label>

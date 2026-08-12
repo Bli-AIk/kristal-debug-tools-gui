@@ -43,16 +43,18 @@ fn just_runner(app: &tauri::AppHandle) -> Option<(PathBuf, tasks::JustSource)> {
     })
 }
 
-/// The launch mode remembered by gui.cmd / gui-download.sh in
-/// <mod-root>/.tools/gui/.mode ("compile" or "bin").
-fn gui_mode_file(state: &AppState) -> PathBuf {
-    state.mod_root.join(".tools").join("gui").join(".mode")
+/// All GUI settings live in one JSON file, shared with the launcher
+/// scripts: <mod-root>/.tools/gui/settings.json
+/// { lang, scale, keepOpen, mode: "compile"|"bin" }
+fn settings_file(state: &AppState) -> PathBuf {
+    state.mod_root.join(".tools").join("gui").join("settings.json")
 }
 
-fn read_gui_mode(state: &AppState) -> bool {
-    std::fs::read_to_string(gui_mode_file(state))
-        .map(|s| s.trim() == "compile")
-        .unwrap_or(false)
+fn read_settings(state: &AppState) -> Value {
+    std::fs::read_to_string(settings_file(state))
+        .ok()
+        .and_then(|s| serde_json::from_str(&s).ok())
+        .unwrap_or_else(|| json!({}))
 }
 
 #[tauri::command]
@@ -79,19 +81,27 @@ pub fn status(app: tauri::AppHandle, state: State<AppState>) -> Value {
         "template": config::detect_template(&state.mod_root),
         "os": std::env::consts::OS,
         "arch": std::env::consts::ARCH,
-        "guiMode": read_gui_mode(&state),
+        "guiMode": read_settings(&state).get("mode").and_then(|m| m.as_str()) == Some("compile"),
+        "settings": read_settings(&state),
     })
 }
 
-/// Write the launcher mode (compile only / release binaries) to
-/// .tools/gui/.mode — takes effect on the next `just gui` run.
+/// Merge a partial settings patch into .tools/gui/settings.json — the
+/// single file shared with gui.cmd / gui-download.sh.
 #[tauri::command]
-pub fn set_gui_mode(state: State<AppState>, compile: bool) -> Result<Value, String> {
-    let file = gui_mode_file(&state);
+pub fn set_settings(state: State<AppState>, patch: Value) -> Result<Value, String> {
+    let file = settings_file(&state);
     let dir = file.parent().ok_or("bad path")?;
     std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
-    std::fs::write(&file, if compile { "compile\n" } else { "bin\n" }).map_err(|e| e.to_string())?;
-    Ok(json!({ "ok": true, "mode": if compile { "compile" } else { "bin" } }))
+    let mut cur = read_settings(&state);
+    if let (Some(obj), Some(p)) = (cur.as_object_mut(), patch.as_object()) {
+        for (k, v) in p {
+            obj.insert(k.clone(), v.clone());
+        }
+    }
+    let text = serde_json::to_string_pretty(&cur).map_err(|e| e.to_string())?;
+    std::fs::write(&file, text).map_err(|e| e.to_string())?;
+    Ok(json!({ "ok": true, "settings": cur }))
 }
 
 #[tauri::command]
@@ -225,8 +235,10 @@ pub fn chapter_config(state: State<AppState>) -> Value {
                     }
                 }
             }
-            if options.is_empty() {
-                // 2. candidate values from Kristal's registerOption(...)
+            // 2. candidate values from Kristal's registerOption(...):
+            // expand when the per-chapter labels collapse to one option
+            // (e.g. a boolean that's "是" in every chapter) or none.
+            if options.len() <= 1 {
                 if let Some(opts) = frow.and_then(|f| f.get("opts")).and_then(|v| v.as_array()) {
                     for v in opts {
                         let label = (1..=4)
@@ -243,6 +255,8 @@ pub fn chapter_config(state: State<AppState>) -> Value {
                                 }
                             })
                             .unwrap_or_else(|| match v {
+                                Value::Bool(true) => "是".to_string(),
+                                Value::Bool(false) => "否".to_string(),
                                 Value::String(s) => s.clone(),
                                 other => other.to_string(),
                             });

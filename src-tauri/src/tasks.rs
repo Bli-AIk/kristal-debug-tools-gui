@@ -214,6 +214,9 @@ pub fn config_feature_rows() -> std::collections::BTreeMap<String, std::collecti
                             row.insert(field.to_string(), Value::String(v.to_string()));
                         }
                     }
+                    if let Some(v) = it.get("opts") {
+                        row.insert("opts".to_string(), v.clone());
+                    }
                     for ch in 1..=4 {
                         if let Some(v) = it.get(&format!("ch{}", ch)) {
                             row.insert(ch.to_string(), v.clone());
