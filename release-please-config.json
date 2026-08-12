@@ -1,0 +1,52 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "always-update": true,
+  "packages": {
+    ".": {
+      "release-type": "simple",
+      "initial-version": "0.0.0",
+      "changelog-sections": [
+        {
+          "type": "feat",
+          "section": "Features"
+        },
+        {
+          "type": "fix",
+          "section": "Bug Fixes"
+        },
+        {
+          "type": "perf",
+          "section": "Performance Improvements"
+        },
+        {
+          "type": "refactor",
+          "section": "Code Refactoring"
+        },
+        {
+          "type": "revert",
+          "section": "Reverts"
+        }
+      ],
+      "changelog-path": "CHANGELOG.md",
+      "include-v-in-tag": true,
+      "include-v-in-release-name": true,
+      "include-component-in-tag": false,
+      "extra-files": [
+        {
+          "type": "cargo",
+          "path": "src-tauri/Cargo.toml"
+        },
+        {
+          "type": "json",
+          "path": "src-tauri/tauri.conf.json",
+          "jsonpath": "$.version"
+        },
+        {
+          "type": "json",
+          "path": "package.json",
+          "jsonpath": "$.version"
+        }
+      ]
+    }
+  }
+}
