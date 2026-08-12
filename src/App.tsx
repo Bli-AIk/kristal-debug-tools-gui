@@ -165,7 +165,9 @@ export default function App() {
 
       {view === "main" ? (
         <main className="layout">
-          <section className="col">
+          {/* grid rows align the two columns: launch ⇄ project info,
+              init ⇄ runs log, task list ⇄ chapter config */}
+          <div className="cell c1r1">
             <LaunchPanel status={status} onLaunch={async (opts) => {
               try {
                 await invoke("launch_game", { req: opts });
@@ -173,8 +175,11 @@ export default function App() {
                 showFlash(t("launchOk"));
               } catch (e) { showFlash(t("taskFail") + ": " + e, true); }
             }} />
+          </div>
+          <div className="cell c2r1"><ProjectPanel status={status} /></div>
 
-            {status?.template?.isTemplate && (
+          {status?.template?.isTemplate && (
+            <div className="cell c1r2">
               <InitPanel onInit={async (name) => {
                 try {
                   await invoke("template_init", { req: { name } });
@@ -182,8 +187,11 @@ export default function App() {
                   addRun("initialize project", `bash start.sh --name ${name}`);
                 } catch (e) { showFlash(t("initFail") + ": " + e, true); }
               }} />
-            )}
+            </div>
+          )}
+          <div className="cell c2r2"><RunsLog runs={runs} /></div>
 
+          <div className="cell c1r3">
             <TaskList tasks={tasks} onRun={async (task, args, justfile) => {
               try {
                 await invoke("run_task", { req: { task, args, justfile } });
@@ -191,13 +199,10 @@ export default function App() {
                 addRun(task, `just ${task} ${args.join(" ")}`);
               } catch (e) { showFlash(t("taskFail") + ": " + e, true); }
             }} onRefresh={loadAll} />
-          </section>
-
-          <section className="col">
+          </div>
+          <div className="cell c2r3">
             <ChapterEntry count={overrideCount} onOpen={() => { loadAll(); setView("chapter"); }} />
-            <ProjectPanel status={status} />
-            <RunsLog runs={runs} />
-          </section>
+          </div>
         </main>
       ) : (
         <ChapterConfigPage
@@ -473,14 +478,13 @@ function ChapterConfigPage({ config, onBack, onPickChapter, onSet }: {
   useEffect(() => { if (config) setSelected(config.chapter); }, [config]);
 
   if (!config) {
-    return <main className="layout"><section className="col"><div className="broken-box panel"><p className="hint">…</p></div></section></main>;
+    return <main className="layout"><div className="cell c1r1"><div className="broken-box panel"><p className="hint">…</p></div></div></main>;
   }
 
   const pending = selected !== config.chapter && selected !== 0;
 
   return (
     <main className="layout">
-      <section className="col">
         <div className="broken-box panel chapter-page">
           <div className="panel-head">
             <h2>{t("chapterConfig")}</h2>
@@ -526,7 +530,6 @@ function ChapterConfigPage({ config, onBack, onPickChapter, onSet }: {
             ))}
           </div>
         </div>
-      </section>
     </main>
   );
 }

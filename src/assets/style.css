@@ -172,10 +172,21 @@ a:hover { color: var(--cyan-bright); text-decoration: underline; }
   /* Grow to fill the viewport so the footer sits at the bottom. */
   flex: 1;
   align-content: start;
+  align-items: start; /* keep panels at their natural height per row */
 }
 @media (max-width: 860px) { .layout { grid-template-columns: 1fr; } }
 
 .col { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+
+/* Fixed grid rows so the two columns align: launch ⇄ project info,
+   init ⇄ runs log, task list ⇄ chapter config. */
+.cell { min-width: 0; }
+.c1r1 { grid-area: 1 / 1; }
+.c2r1 { grid-area: 1 / 2; }
+.c1r2 { grid-area: 2 / 1; }
+.c2r2 { grid-area: 2 / 2; }
+.c1r3 { grid-area: 3 / 1; }
+.c2r3 { grid-area: 3 / 2; }
 
 /* --- panels: the Deltarune broken border (original SVG drawing) --- */
 
@@ -350,9 +361,8 @@ input:focus, select:focus { outline: none; border-color: var(--yellow); }
 
 .chapter-page {
   position: relative;
+  grid-column: 1 / -1; /* span the full layout width */
   width: 100%;
-  max-width: 1100px;
-  margin: 18px auto 40px;
   z-index: 1;
 }
 .chapter-config-list {
