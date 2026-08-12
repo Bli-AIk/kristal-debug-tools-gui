@@ -545,17 +545,23 @@ function ChapterConfigPage({ config, onBack, onSaveAll }: {
   }
 
   const hasEdits = Object.keys(edits).length > 0;
-  const edit = (key: string, value: unknown) =>
+  // Pressing Ch.N is an explicit pick (many items are identical across
+  // chapters, so pure derivation can't tell which one you meant). Editing
+  // a value drops the pick and returns to the derived state.
+  const [pickedCh, setPickedCh] = useState<number | null>(null);
+  const edit = (key: string, value: unknown) => {
+    setPickedCh(null);
     setEdits((e) => ({ ...e, [key]: value }));
+  };
+  // The chapter indicator: the picked chapter while staging a preset,
+  // otherwise DERIVED from the content (Ch.N when it equals that preset,
+  // ★ custom when it differs from every preset). Pure logic in presets.ts.
+  const activeCh = pickedCh ?? matchingChapter(config.items, edits); // 0 = ★ custom
 
-  // The chapter indicator is DERIVED from the current content (staged
-  // edits + applied overrides): Ch.N when it equals that preset exactly,
-  // otherwise ★ custom. Pressing Ch.N loads that preset into the staged
-  // edits (saving overwrites); editing below just modifies the content.
-  // (pure logic in presets.ts, unit-tested)
-  const activeCh = matchingChapter(config.items, edits); // 0 = ★ custom
-
-  const applyPreset = (n: number) => setEdits(applyPresetValues(config.items, n));
+  const applyPreset = (n: number) => {
+    setPickedCh(n);
+    setEdits(applyPresetValues(config.items, n));
+  };
 
   return (
     <main className="layout">
@@ -571,7 +577,7 @@ function ChapterConfigPage({ config, onBack, onSaveAll }: {
               <button className={"btn small" + (activeCh === 0 ? " applied" : "")}
                 disabled={activeCh !== 0} title={t("customConfig")}>★ {t("customConfig")}</button>
               <button className="btn small danger" disabled={!hasEdits}
-                onClick={() => { onSaveAll(edits); setEdits({}); }}>
+                onClick={() => { onSaveAll(edits); setEdits({}); setPickedCh(null); }}>
                 {t("save")}
               </button>
             </span>

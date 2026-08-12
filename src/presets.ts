@@ -15,18 +15,26 @@ export function effValue(item: PresetItem, edits: Edits): unknown {
 }
 
 /**
+ * Whether the content equals chapter `ch`'s preset. A chapter matches
+ * when every item that HAS a preset value for it equals that value;
+ * items without a value for the chapter are skipped.
+ */
+export function matchesChapter(items: PresetItem[], edits: Edits, ch: number): boolean {
+  const relevant = items.filter((it) => it.chValues?.[String(ch)] !== undefined);
+  if (relevant.length === 0) return false;
+  return relevant.every((it) => String(effValue(it, edits)) === String(it.chValues![String(ch)].value));
+}
+
+/**
  * Which chapter preset the content (edits + applied values) equals.
- * A chapter is a match when every item that HAS a preset value for it
- * equals that value; items without a value for the chapter are skipped.
+ * Note: many items are identical across chapters, so several chapters
+ * may match — this returns the first one. The UI prefers an explicit
+ * chapter pick for that reason.
  * Returns 0 when no chapter matches (★ custom).
  */
 export function matchingChapter(items: PresetItem[], edits: Edits): number {
   for (let ch = 1; ch <= 4; ch++) {
-    const relevant = items.filter((it) => it.chValues?.[String(ch)] !== undefined);
-    if (relevant.length === 0) continue;
-    if (relevant.every((it) => String(effValue(it, edits)) === String(it.chValues![String(ch)].value))) {
-      return ch;
-    }
+    if (matchesChapter(items, edits, ch)) return ch;
   }
   return 0;
 }
