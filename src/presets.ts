@@ -53,14 +53,35 @@ export function effectiveValue(item: PresetItem, chapter: number, edits: Edits):
 
 /**
  * Compute the edit required to show `value` against `chapter`'s baseline.
- * Returning null removes an override; returning undefined cancels a staged
- * edit because the saved state already has the requested result.
+ *
+ * Once an item has a staged user override, clicking any value only changes
+ * that override — even when the value equals the current chapter default.
+ * A `null` edit is an explicit deletion produced by the reset action, not
+ * by clicking a value that happens to match the chapter default.
  */
-export function editForValue(item: PresetItem, chapter: number, value: unknown): unknown | null | undefined {
-  const next = sameValue(value, chapterDefault(item, chapter).value) ? null : value;
+export function editForValue(
+  item: PresetItem,
+  chapter: number,
+  value: unknown,
+  edits: Edits = {},
+): unknown | null | undefined {
+  const staged = hasEdit(edits, item.key) ? edits[item.key] : undefined;
   const saved = savedOverride(item);
 
-  if (next === null && saved === undefined) return undefined;
-  if (next !== null && saved !== undefined && sameValue(next, saved)) return undefined;
-  return next;
+  if (staged !== undefined) {
+    return sameValue(value, staged) ? staged : value;
+  }
+  if (saved !== undefined && sameValue(value, saved)) return undefined;
+  if (saved === undefined && sameValue(value, chapterDefault(item, chapter).value)) return undefined;
+  return value;
+}
+
+/**
+ * Explicitly cancel a pending edit or delete a saved override. Returns
+ * undefined when the pending state should be cleared, or null when a saved
+ * override should be removed on save.
+ */
+export function resetEdit(item: PresetItem, edits: Edits = {}): unknown | null | undefined {
+  if (hasEdit(edits, item.key)) return undefined;
+  return savedOverride(item) !== undefined ? null : undefined;
 }

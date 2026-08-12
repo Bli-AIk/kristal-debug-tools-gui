@@ -6,6 +6,7 @@ import {
   hasEdit,
   isCustom,
   overrideValue,
+  resetEdit,
 } from "./presets";
 
 const item = {
@@ -16,6 +17,18 @@ const item = {
     "2": { label: "是", value: true },
     "3": { label: "是", value: true },
     "4": { label: "否", value: false },
+  },
+};
+
+// The exact scenario from the bug report: ch4 default true, ch3 default false.
+const awake = {
+  key: "awakeMessages",
+  current: { label: "是", value: true },
+  chValues: {
+    "1": { label: "是", value: true },
+    "2": { label: "是", value: true },
+    "3": { label: "否", value: false },
+    "4": { label: "是", value: true },
   },
 };
 
@@ -33,15 +46,25 @@ describe("chapter baseline and overrides", () => {
     expect(effectiveValue(overridden, 4, {})).toBe(false);
   });
 
-  it("stages removal when a user selects the current chapter default", () => {
-    const overridden = { ...item, current: { label: "否", value: false }, isOverride: true };
-    const edit = editForValue(overridden, 4, false);
-    expect(edit).toBeNull();
-    expect(overrideValue(overridden, { growStronger: edit! })).toBeNull();
-    expect(isCustom(overridden, { growStronger: edit! })).toBe(false);
+  it("keeps a staged override when clicking a value equal to the current chapter default", () => {
+    const staged = editForValue(awake, 4, false);
+    expect(staged).toBe(false);
+    const edits = { awakeMessages: staged! };
+
+    // Switch to ch3 (default false) and click false again: the user override
+    // must survive, not be silently cancelled back to a plain default.
+    expect(editForValue(awake, 3, false, edits)).toBe(false);
+    expect(overrideValue(awake, edits)).toBe(false);
+    expect(isCustom(awake, edits)).toBe(true);
   });
 
-  it("does not stage a no-op when a default value is chosen again", () => {
+  it("clicking another value while staged only changes that override", () => {
+    const edits = { awakeMessages: true };
+    expect(editForValue(awake, 3, false, edits)).toBe(false);
+    expect(editForValue(awake, 3, true, edits)).toBe(true);
+  });
+
+  it("does not stage a no-op when a default value is chosen without an override", () => {
     expect(editForValue(item, 4, false)).toBeUndefined();
     expect(hasEdit({}, item.key)).toBe(false);
   });
@@ -50,21 +73,9 @@ describe("chapter baseline and overrides", () => {
     expect(editForValue(item, 2, true)).toBeUndefined();
   });
 
-  it("cancels a staged edit by choosing the saved override again", () => {
-    const overridden = {
-      key: "darkCandyForm",
-      current: { label: "dark", value: "dark" },
-      chValues: {
-        "1": { label: "dark", value: "dark" },
-        "2": { label: "darker", value: "darker" },
-        "3": { label: "dark", value: "dark" },
-        "4": { label: "darker", value: "darker" },
-      },
-      isOverride: true,
-    };
-    const staged = editForValue(overridden, 2, "round");
-    expect(staged).toBe("round");
-    expect(editForValue(overridden, 2, "dark")).toBeUndefined();
+  it("does not delete a saved override by clicking the current chapter default", () => {
+    const overridden = { ...item, current: { label: "是", value: true }, isOverride: true };
+    expect(editForValue(overridden, 4, false)).toBe(false);
   });
 
   it("does not turn a null baseline into a literal null override", () => {
@@ -79,7 +90,16 @@ describe("chapter baseline and overrides", () => {
       current: { label: "未设置", value: null },
       isOverride: true,
     };
-    expect(editForValue(overridden, 1, null)).toBeNull();
+    expect(editForValue(overridden, 1, null)).toBeUndefined();
+  });
+
+  it("explicit reset cancels a staged edit or deletes a saved override", () => {
+    expect(resetEdit(awake, { awakeMessages: false })).toBeUndefined();
+
+    const overridden = { ...item, current: { label: "是", value: true }, isOverride: true };
+    expect(resetEdit(overridden, {})).toBeNull();
+    expect(overrideValue(overridden, { growStronger: null })).toBeNull();
+    expect(isCustom(overridden, { growStronger: null })).toBe(false);
   });
 
   it("stages only the changed property, not an entire chapter preset", () => {

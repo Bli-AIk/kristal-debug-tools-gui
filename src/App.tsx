@@ -5,6 +5,7 @@ import {
   effectiveValue,
   hasEdit as hasStagedEdit,
   isCustom,
+  resetEdit,
   sameValue,
 } from "./presets";
 import "./assets/style.css";
@@ -571,18 +572,27 @@ function ChapterConfigEditor({ config, onBack, onSaveAll }: {
   const chapterChanged = chapter !== config.chapter;
   const hasChanges = chapterChanged || Object.keys(edits).length > 0;
   const stageValue = (item: ChapterItem, value: unknown) => {
-    const change = editForValue(item, chapter, value);
     setEdits((previous) => {
+      const change = editForValue(item, chapter, value, previous);
       const next = { ...previous };
       if (change === undefined) delete next[item.key];
       else next[item.key] = change;
       return next;
     });
   };
-  const savedCustomCount = config.items.filter((item) => isCustom(item, {})).length;
+  const resetValue = (item: ChapterItem) => {
+    setEdits((previous) => {
+      const change = resetEdit(item, previous);
+      const next = { ...previous };
+      if (change === undefined) delete next[item.key];
+      else next[item.key] = change;
+      return next;
+    });
+  };
   const pendingCount = Object.keys(edits).length;
   const pending = chapterChanged || pendingCount > 0;
-  const hasSummary = savedCustomCount > 0 || pendingCount > 0;
+  const userOverrideCount = config.items.filter((item) => isCustom(item, edits)).length;
+  const hasSummary = userOverrideCount > 0;
   const basedOn = t("basedOnChapter").replace("{chapter}", String(chapter));
 
   return (
@@ -618,7 +628,7 @@ function ChapterConfigEditor({ config, onBack, onSaveAll }: {
               return (
                 <div className={"cc-row" + (staged ? " pending" : custom ? " custom" : "")} key={item.key}>
                   <span className="cc-name" title={item.key}>
-                    {item.name ?? item.key}
+                    {isCustom(item, edits) ? "★ " : ""}{item.name ?? item.key}
                     {(item.desc || item.descEn) && (
                       <span className="cc-desc"> — {lang === "zh" ? (item.desc ?? item.descEn) : (item.descEn ?? item.desc)}</span>
                     )}
@@ -658,6 +668,11 @@ function ChapterConfigEditor({ config, onBack, onSaveAll }: {
                           ))}
                         </select>
                       </>
+                    )}
+                    {(custom || staged) && (
+                      <button className={"btn small" + (staged ? " pending" : " custom")}
+                        title={t("overrideReset")}
+                        onClick={() => resetValue(item)}>↺</button>
                     )}
                   </span>
                 </div>
