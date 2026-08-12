@@ -3,7 +3,7 @@
 //! stdout the GUI captures; `just` itself writes to the process-wide
 //! stdout, so it can never run in-process.
 
-use serde_json::{json, Map, Value};
+use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::path::Path;
 use std::process::Command;
@@ -84,23 +84,6 @@ pub enum JustSource {
     Embedded,
     /// A `just` binary discovered on PATH (dev fallback).
     System,
-}
-
-fn desc_map() -> Map<String, Value> {
-    serde_json::from_str(DESCS_JSON)
-        .ok()
-        .and_then(|v: Value| v.as_array().cloned())
-        .map(|items| {
-            items
-                .into_iter()
-                .filter_map(|it| {
-                    let key = it.get("key")?.as_str()?.to_string();
-                    let desc = it.get("desc").and_then(|d| d.as_str()).unwrap_or("").to_string();
-                    Some((key, Value::String(desc)))
-                })
-                .collect()
-        })
-        .unwrap_or_default()
 }
 
 fn run_dump(source: JustSource, runner: &Path, justfile: &Path, dir: &Path) -> Option<Value> {
@@ -212,11 +195,6 @@ pub fn list(source: JustSource, runner: &Path, library_justfile: &Path, mod_root
         }
     }
     json!({ "source": source_name, "tasks": tasks, "mod": mod_group })
-}
-
-/// Configurable-features descriptions (zh, from the Kristal website).
-pub fn config_feature_descs() -> Map<String, Value> {
-    desc_map()
 }
 
 /// Full config-features rows: key -> { desc, "1".."4": human-readable

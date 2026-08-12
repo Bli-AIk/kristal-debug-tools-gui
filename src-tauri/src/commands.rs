@@ -1,7 +1,7 @@
 //! Tauri commands: the GUI's backend API.
 
 use crate::{config, launcher, tasks, term};
-use serde_json::{json, Value};
+use serde_json::{json, Map, Value};
 use std::path::PathBuf;
 use tauri::{Manager, State};
 
