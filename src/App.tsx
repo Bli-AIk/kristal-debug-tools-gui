@@ -399,7 +399,7 @@ function InitPanel({ onInit }: { onInit: (name: string) => void }) {
       </div>
       <div className="launch-row">
         <button className={"btn big" + (armed ? " armed" : "")} onClick={click}>
-          ★ {done ? (lang === "zh" ? "星之 行者" : "Star Walker") : armed ? t("initConfirm") : t("initBtn")}
+          ★ {done ? (lang === "zh" ? "星之    行者" : "Star     Walker") : armed ? t("initConfirm") : t("initBtn")}
         </button>
       </div>
     </div>
