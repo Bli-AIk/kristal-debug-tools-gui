@@ -59,6 +59,17 @@ fn label_str(v: &Value) -> String {
     }
 }
 
+
+/// Infer a raw value from a semantic label ("是"/"否"/"未设置").
+fn infer_raw(label: &str) -> Option<Value> {
+    match label {
+        "是" => Some(Value::Bool(true)),
+        "否" => Some(Value::Bool(false)),
+        "未设置" => Some(Value::Null),
+        _ => None,
+    }
+}
+
 fn read_settings(state: &AppState) -> Value {
     std::fs::read_to_string(settings_file(state))
         .ok()
@@ -232,6 +243,15 @@ pub fn chapter_config(state: State<AppState>) -> Value {
             // options: dedup (label, raw) pairs across the 4 chapters
             let frow = features.get(&k);
             let mut options: Vec<(String, Value)> = Vec::new();
+            // semantic label for a chapter, falling back to the first
+            // chapter that has one (some keys lack ch3/ch4 rows)
+            let sem_of = |ch: usize| -> Option<String> {
+                let f = features.get(&k)?;
+                f.get(&ch.to_string())
+                    .or_else(|| (1..=4).find_map(|c| f.get(&c.to_string())))
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.trim_matches('"').to_string())
+            };
             for ch in 1..=4 {
                 let raw = defaults.get(ch - 1).and_then(|m| m.get(&k)).cloned();
                 let label = features
@@ -242,12 +262,7 @@ pub fn chapter_config(state: State<AppState>) -> Value {
                 if let Some(label) = label {
                     // a raw value may be missing from the chapter files —
                     // infer it from the semantic label where possible
-                    let raw = raw.or_else(|| match label {
-                        "是" => Some(Value::Bool(true)),
-                        "否" => Some(Value::Bool(false)),
-                        "未设置" => Some(Value::Null),
-                        _ => None,
-                    });
+                    let raw = raw.or_else(|| infer_raw(label));
                     if let Some(raw) = raw {
                         if !options.iter().any(|(l, _)| l.as_str() == label) {
                             options.push((label.to_string(), raw));
@@ -309,15 +324,19 @@ pub fn chapter_config(state: State<AppState>) -> Value {
                 }
                 None => match defaults.get(chapter.saturating_sub(1) as usize).and_then(|m| m.get(&k)) {
                     Some(raw) => {
-                        let label = features
-                            .get(&k)
-                            .and_then(|f| f.get(&chapter.to_string()))
-                            .and_then(|v| v.as_str())
-                            .map(|s| s.trim_matches('\"').to_string())
-                            .unwrap_or_else(|| label_str(raw));
+                        let label = sem_of(chapter as usize).unwrap_or_else(|| label_str(raw));
                         (json!({ "label": label, "value": raw.clone() }), false)
                     }
-                    None => (json!({ "label": "", "value": Value::Null }), false),
+                    // key missing from the chapter files: use the semantic
+                    // label (any chapter) and infer the raw value
+                    None => match sem_of(chapter as usize) {
+                        Some(label) => {
+                            let value = infer_raw(&label)
+                                .unwrap_or_else(|| Value::String(label.clone()));
+                            (json!({ "label": label, "value": value }), false)
+                        }
+                        None => (json!({ "label": "", "value": Value::Null }), false),
+                    },
                 },
             };
             // per-chapter default values (semantic label + raw value) so
@@ -325,17 +344,12 @@ pub fn chapter_config(state: State<AppState>) -> Value {
             let ch_values: Map<String, Value> = (1..=4)
                 .map(|ch| {
                     let raw = defaults.get(ch - 1).and_then(|m| m.get(&k));
-                    let label = features
-                        .get(&k)
-                        .and_then(|f| f.get(&ch.to_string()))
-                        .and_then(|v| v.as_str())
-                        .map(|s| s.trim_matches('\"').to_string())
-                        .or_else(|| raw.map(label_str))
-                        .unwrap_or_default();
-                    (
-                        ch.to_string(),
-                        json!({ "label": label, "value": raw.cloned().unwrap_or(Value::Null) }),
-                    )
+                    let label = sem_of(ch).or_else(|| raw.map(label_str)).unwrap_or_default();
+                    let value = raw
+                        .cloned()
+                        .or_else(|| infer_raw(label.as_str()))
+                        .unwrap_or(Value::Null);
+                    (ch.to_string(), json!({ "label": label, "value": value }))
                 })
                 .collect();
             json!({
