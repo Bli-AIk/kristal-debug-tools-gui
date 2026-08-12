@@ -389,15 +389,18 @@ function TaskList({ tasks, onRun, onRefresh }: {
   const row = (task: TaskItem, group: string, justfile: string) => {
     const id = `${group}-${task.name}`;
     const val = args[id] ?? "";
+    const run = () => {
+      const parts = val.split(/\s+/).filter(Boolean);
+      onRun(task.name, parts, justfile);
+    };
     return (
-      <div className="task-row" key={id}>
+      <div className="task-row" key={id} onClick={run} title={t("run")}>
         <span className="task-name">
           {task.name}
           {task.aliases?.length ? <span className="alias"> [{task.aliases.join(", ")}]</span> : null}
         </span>
-        <span className="task-doc">{task.doc ?? ""}</span>
         {task.params?.length ? (
-          <span className="task-params">
+          <span className="task-params" onClick={(e) => e.stopPropagation()}>
             {task.params.map((p) => (
               <input key={p.name} type="text"
                 placeholder={p.kind === "many" ? "a, b, c" : p.kind === "star" ? "arg1 arg2" : p.name}
@@ -405,10 +408,7 @@ function TaskList({ tasks, onRun, onRefresh }: {
             ))}
           </span>
         ) : null}
-        <button className="btn small" onClick={() => {
-          const parts = val.split(/\s+/).filter(Boolean);
-          onRun(task.name, parts, justfile);
-        }}>▶ {t("run")}</button>
+        <span className="task-doc">{task.doc ?? ""}</span>
       </div>
     );
   };

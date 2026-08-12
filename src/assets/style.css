@@ -338,20 +338,23 @@ input:focus, select:focus { outline: none; border-color: var(--yellow); }
 
 .task-row {
   display: grid;
-  /* name | doc (stretches) | params | run — params and run sit close
-     together at the right so typing then clicking is a short move. */
-  grid-template-columns: auto 1fr auto auto;
+  /* name + params on the left, doc right-aligned — the whole row is the
+     run button (hover turns the white text yellow, click runs). */
+  grid-template-columns: auto auto 1fr;
   align-items: center;
   gap: 8px 12px;
   padding: 8px 6px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+  cursor: pointer;
 }
 .task-row:last-child { border-bottom: none; }
 .task-row:hover { background: rgba(255, 255, 255, 0.06); }
+.task-row:hover .task-name,
+.task-row:hover .task-doc { color: var(--yellow); }
 
-.task-name { font-family: var(--font-bold); font-size: 1.05rem; min-width: 120px; }
+.task-name { font-family: var(--font-bold); font-size: 1.05rem; }
 .task-name .alias { color: var(--cyan); font-size: 0.8rem; }
-.task-doc { color: var(--muted); font-size: 0.85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.task-doc { color: var(--muted); font-size: 0.85rem; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .task-params { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .task-params label { display: flex; align-items: center; gap: 5px; font-size: 0.85rem; color: var(--dim); }
 .task-params input[type="text"], .task-params input:not([type]) { width: 110px; padding: 0.15em 0.4em; font-size: 0.85rem; }
