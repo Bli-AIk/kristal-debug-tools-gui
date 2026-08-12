@@ -1,64 +1,90 @@
 import { describe, expect, it } from "vitest";
-import { matchingChapter, applyPresetValues } from "./presets";
+import {
+  chapterDefault,
+  editForValue,
+  effectiveValue,
+  hasEdit,
+  isCustom,
+  overrideValue,
+} from "./presets";
 
-// A minimal item: chValues holds per-chapter preset values.
-function item(key: string, chValues: Record<string, unknown> | undefined) {
-  return {
-    key,
-    current: { label: String(chValues?.["1"] ?? ""), value: chValues?.["1"] ?? null },
-    chValues: chValues
-      ? Object.fromEntries(Object.entries(chValues).map(([ch, v]) => [ch, { label: String(v), value: v }]))
-      : undefined,
-  };
-}
+const item = {
+  key: "growStronger",
+  current: { label: "否", value: false },
+  chValues: {
+    "1": { label: "否", value: false },
+    "2": { label: "是", value: true },
+    "3": { label: "是", value: true },
+    "4": { label: "否", value: false },
+  },
+};
 
-const items = [
-  // full 4-chapter boolean
-  item("growStronger", { "1": false, "2": true, "3": true, "4": false }),
-  // only ch1/ch2 defined (like enableStorage)
-  item("enableStorage", { "1": false, "2": true }),
-  // free string outside the presets (like default_encounter)
-  item("default_encounter", undefined),
-];
-
-describe("matchingChapter", () => {
-  it("returns the chapter whose preset the content equals", () => {
-    // content = ch.2's values (edits staged from the ch.2 preset)
-    const edits = applyPresetValues(items, 2);
-    expect(matchingChapter(items, edits)).toBe(2);
+describe("chapter baseline and overrides", () => {
+  it("uses the selected chapter as the baseline without generating edits", () => {
+    expect(chapterDefault(item, 4).value).toBe(false);
+    expect(effectiveValue(item, 4, {})).toBe(false);
+    expect(effectiveValue(item, 2, {})).toBe(true);
   });
 
-  it("returns ch.1 when content equals ch.1 (no edits)", () => {
-    // defaults: current values come from ch.1 — matchingChapter must see them
-    const defaults = items.map((it) => ({ ...it, current: { label: String(it.chValues?.["1"]?.value ?? ""), value: it.chValues?.["1"]?.value ?? null } }));
-    expect(matchingChapter(defaults, {})).toBe(1);
+  it("keeps an explicit override when the chapter changes", () => {
+    const overridden = { ...item, current: { label: "否", value: false }, isOverride: true };
+    expect(isCustom(overridden, {})).toBe(true);
+    expect(effectiveValue(overridden, 2, {})).toBe(false);
+    expect(effectiveValue(overridden, 4, {})).toBe(false);
   });
 
-  it("returns 0 (custom) when one item differs from every preset", () => {
-    const edits = { growStronger: 999 }; // not any chapter's value
-    expect(matchingChapter(items, edits)).toBe(0);
+  it("stages removal when a user selects the current chapter default", () => {
+    const overridden = { ...item, current: { label: "否", value: false }, isOverride: true };
+    const edit = editForValue(overridden, 4, false);
+    expect(edit).toBeNull();
+    expect(overrideValue(overridden, { growStronger: edit! })).toBeNull();
+    expect(isCustom(overridden, { growStronger: edit! })).toBe(false);
   });
 
-  it("returns the matching chapter when the edit equals an existing preset", () => {
-    // true: ch.3 matches (enableStorage has no ch.3 value, ch.2 needs it true)
-    expect(matchingChapter(items, { growStronger: true })).toBe(3);
+  it("does not stage a no-op when a default value is chosen again", () => {
+    expect(editForValue(item, 4, false)).toBeUndefined();
+    expect(hasEdit({}, item.key)).toBe(false);
   });
 
-  it("treats ch.3 as matching even though enableStorage has no ch.3 value", () => {
-    const edits = applyPresetValues(items, 3);
-    expect(matchingChapter(items, edits)).toBe(3);
+  it("does not stage an edit just because another chapter's default is previewed", () => {
+    expect(editForValue(item, 2, true)).toBeUndefined();
   });
 
-  it("returns 0 when nothing but preset-less items exist (encounter only)", () => {
-    expect(matchingChapter([item("default_encounter", undefined)], { default_encounter: "dummy" })).toBe(0);
+  it("cancels a staged edit by choosing the saved override again", () => {
+    const overridden = {
+      key: "darkCandyForm",
+      current: { label: "dark", value: "dark" },
+      chValues: {
+        "1": { label: "dark", value: "dark" },
+        "2": { label: "darker", value: "darker" },
+        "3": { label: "dark", value: "dark" },
+        "4": { label: "darker", value: "darker" },
+      },
+      isOverride: true,
+    };
+    const staged = editForValue(overridden, 2, "round");
+    expect(staged).toBe("round");
+    expect(editForValue(overridden, 2, "dark")).toBeUndefined();
   });
-});
 
-describe("applyPresetValues", () => {
-  it("loads every chapter value into the edits, skipping missing ones", () => {
-    const edits = applyPresetValues(items, 3);
-    expect(edits.growStronger).toBe(true);
-    expect(edits.enableStorage).toBeUndefined(); // no ch.3 preset
-    expect(edits.default_encounter).toBeUndefined(); // no presets at all
+  it("does not turn a null baseline into a literal null override", () => {
+    const nullBaseline = {
+      ...item,
+      chValues: { ...item.chValues, "1": { label: "未设置", value: null } },
+    };
+    expect(editForValue(nullBaseline, 1, null)).toBeUndefined();
+
+    const overridden = {
+      ...nullBaseline,
+      current: { label: "未设置", value: null },
+      isOverride: true,
+    };
+    expect(editForValue(overridden, 1, null)).toBeNull();
+  });
+
+  it("stages only the changed property, not an entire chapter preset", () => {
+    const edit = editForValue(item, 4, true);
+    expect(edit).toBe(true);
+    expect(effectiveValue(item, 4, { growStronger: edit! })).toBe(true);
   });
 });

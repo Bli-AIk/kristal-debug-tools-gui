@@ -1,49 +1,66 @@
-// Pure helpers for the chapter-preset page: which preset the current
-// content matches, and loading a preset into the staged edits.
+// Pure state helpers for the chapter page. Kristal uses `chapter` as the
+// baseline and only treats config.kristal entries as overrides; never turn a
+// chapter's defaults into a large set of explicit config values.
+
+export interface PresetValue {
+  label: string;
+  value: unknown;
+}
 
 export interface PresetItem {
   key: string;
-  current: { label: string; value: unknown };
-  chValues?: Record<string, { label: string; value: unknown }>;
+  current: PresetValue;
+  chValues?: Record<string, PresetValue>;
+  isOverride?: boolean;
 }
 
-export type Edits = Record<string, unknown>;
+// null is intentional: it means "remove this override on save". An absent
+// key means no staged change for that property.
+export type Edits = Record<string, unknown | null>;
 
-/** Effective value of an item: a staged edit wins over the applied one. */
-export function effValue(item: PresetItem, edits: Edits): unknown {
-  return edits[item.key] !== undefined ? edits[item.key] : item.current.value;
+export function sameValue(left: unknown, right: unknown): boolean {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+export function hasEdit(edits: Edits, key: string): boolean {
+  return Object.prototype.hasOwnProperty.call(edits, key);
+}
+
+export function chapterDefault(item: PresetItem, chapter: number): PresetValue {
+  return item.chValues?.[String(chapter)] ?? item.current;
+}
+
+function savedOverride(item: PresetItem): unknown | undefined {
+  return item.isOverride ? item.current.value : undefined;
+}
+
+/** The explicit override after staged changes, if any. */
+export function overrideValue(item: PresetItem, edits: Edits): unknown | null | undefined {
+  return hasEdit(edits, item.key) ? edits[item.key] : savedOverride(item);
+}
+
+export function isCustom(item: PresetItem, edits: Edits): boolean {
+  const value = overrideValue(item, edits);
+  return value !== undefined && value !== null;
+}
+
+export function effectiveValue(item: PresetItem, chapter: number, edits: Edits): unknown {
+  const override = overrideValue(item, edits);
+  return override === undefined || override === null
+    ? chapterDefault(item, chapter).value
+    : override;
 }
 
 /**
- * Whether the content equals chapter `ch`'s preset. A chapter matches
- * when every item that HAS a preset value for it equals that value;
- * items without a value for the chapter are skipped.
+ * Compute the edit required to show `value` against `chapter`'s baseline.
+ * Returning null removes an override; returning undefined cancels a staged
+ * edit because the saved state already has the requested result.
  */
-export function matchesChapter(items: PresetItem[], edits: Edits, ch: number): boolean {
-  const relevant = items.filter((it) => it.chValues?.[String(ch)] !== undefined);
-  if (relevant.length === 0) return false;
-  return relevant.every((it) => String(effValue(it, edits)) === String(it.chValues![String(ch)].value));
-}
+export function editForValue(item: PresetItem, chapter: number, value: unknown): unknown | null | undefined {
+  const next = sameValue(value, chapterDefault(item, chapter).value) ? null : value;
+  const saved = savedOverride(item);
 
-/**
- * Which chapter preset the content (edits + applied values) equals.
- * Note: many items are identical across chapters, so several chapters
- * may match — this returns the first one. The UI prefers an explicit
- * chapter pick for that reason.
- * Returns 0 when no chapter matches (★ custom).
- */
-export function matchingChapter(items: PresetItem[], edits: Edits): number {
-  for (let ch = 1; ch <= 4; ch++) {
-    if (matchesChapter(items, edits, ch)) return ch;
-  }
-  return 0;
-}
-
-/** Stage every preset value of chapter `ch` as edits (missing ones skipped). */
-export function applyPresetValues(items: PresetItem[], ch: number): Edits {
-  const next: Edits = {};
-  for (const it of items) {
-    if (it.chValues?.[String(ch)]) next[it.key] = it.chValues[String(ch)].value;
-  }
+  if (next === null && saved === undefined) return undefined;
+  if (next !== null && saved !== undefined && sameValue(next, saved)) return undefined;
   return next;
 }

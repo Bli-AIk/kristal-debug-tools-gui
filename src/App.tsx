@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { applyPresetValues, matchingChapter } from "./presets";
+import {
+  editForValue,
+  effectiveValue,
+  hasEdit as hasStagedEdit,
+  isCustom,
+  sameValue,
+} from "./presets";
 import "./assets/style.css";
 
 /* ---------- i18n ---------- */
@@ -12,7 +18,8 @@ const I18N: Record<string, Record<string, string>> = {
     initProject: "项目初始化", projectName: "项目名", initBtn: "初始化项目", initConfirm: "再次点击确认",
     initDone: "初始化已在终端窗口启动，完成后建议重启 GUI", initFail: "初始化失败",
     customConfig: "自定义配置", configure: "配置", chapterConfig: "章节预设",
-    currentChapter: "当前章节预设", overridesActive: "项配置覆盖生效中", noOverrides: "无配置覆盖（用默认值）",
+    currentChapter: "当前章节预设", overridesActive: "项自定义覆盖生效中", noOverrides: "无配置覆盖（使用章节默认值）",
+    basedOnChapter: "基于 Ch.{chapter} 的自定义", chapterSaved: "章节预设已保存", overridesSaved: "章节预设与自定义覆盖已保存",
     fLang: "语言", fEncounter: "遭遇", fWave: "波次", fWaveForce: "强制波次",
     fTp: "初始 TP", fMercy: "初始 mercy", fExtra: "额外参数",
     love: "love", engine: "引擎", mod: "模组", just: "just", justEmbedded: "内置 (just crate)",
@@ -21,7 +28,7 @@ const I18N: Record<string, Record<string, string>> = {
     empty: "（空）", noTasks: "没有可运行的任务",
     launchOk: "游戏已在新终端窗口中启动", taskStarted: "任务已在新终端窗口中启动",
     taskFail: "启动失败", apply: "应用", overrideDefault: "默认", overrideOn: "开", overrideOff: "关",
-    overrideSaved: "已保存", overrideReset: "重置", back: "返回", chapterSaved: "默认章节已保存",
+    overrideSaved: "已保存", overrideReset: "重置", back: "返回",
     save: "保存",
     run: "运行", refresh: "刷新",
     otherConfig: "其他配置", encounterEmpty: "留空为无",
@@ -34,7 +41,8 @@ const I18N: Record<string, Record<string, string>> = {
     initProject: "INITIALIZE PROJECT", projectName: "PROJECT NAME", initBtn: "INITIALIZE", initConfirm: "CLICK AGAIN TO CONFIRM",
     initDone: "initialization started in a terminal window — restart the GUI when done", initFail: "init failed",
     customConfig: "CUSTOM CONFIG", configure: "CONFIGURE", chapterConfig: "CHAPTER PRESETS",
-    currentChapter: "CURRENT PRESET", overridesActive: "overrides active", noOverrides: "no overrides (defaults)",
+    currentChapter: "CURRENT PRESET", overridesActive: "custom overrides active", noOverrides: "no overrides (chapter defaults)",
+    basedOnChapter: "customized from Ch.{chapter}", chapterSaved: "chapter preset saved", overridesSaved: "chapter preset and overrides saved",
     fLang: "LANGUAGE", fEncounter: "ENCOUNTER", fWave: "WAVE", fWaveForce: "WAVE FORCE",
     fTp: "TP", fMercy: "MERCY", fExtra: "EXTRA ARGS",
     love: "love", engine: "engine", mod: "mod", just: "just", justEmbedded: "builtin (just crate)",
@@ -43,7 +51,7 @@ const I18N: Record<string, Record<string, string>> = {
     empty: "(empty)", noTasks: "no runnable tasks",
     launchOk: "game launched in a new terminal window", taskStarted: "task started in a new terminal window",
     taskFail: "start failed", apply: "APPLY", overrideDefault: "default", overrideOn: "on", overrideOff: "off",
-    overrideSaved: "saved", overrideReset: "reset", back: "BACK", chapterSaved: "default chapter saved",
+    overrideSaved: "saved", overrideReset: "reset", back: "BACK",
     save: "SAVE",
     run: "RUN", refresh: "REFRESH",
     otherConfig: "OTHER CONFIG", encounterEmpty: "empty = none",
@@ -85,6 +93,10 @@ interface ChapterItem {
   standard?: boolean;
 }
 interface ChapterConfig { chapter: number; items: ChapterItem[] }
+interface ChapterSave {
+  chapter: number;
+  changes: Record<string, unknown | null>;
+}
 interface RunEntry { id: number; label: string; command: string }
 
 /* ---------- App ---------- */
@@ -259,13 +271,10 @@ export default function App() {
         <ChapterConfigPage
           config={chapterConfig}
           onBack={() => setView("main")}
-          onSaveAll={async (edits) => {
+          onSaveAll={async (save) => {
             try {
-              for (const [key, value] of Object.entries(edits)) {
-                // an emptied field removes the override (encounter: 空为无)
-                await invoke("chapter_config_set", { req: { key, value: value === "" ? null : value } });
-              }
-              showFlash(t("overrideSaved"));
+              await invoke("chapter_config_save", { req: save });
+              showFlash(Object.keys(save.changes).length ? t("overridesSaved") : t("chapterSaved"));
               loadAll();
             } catch (e) { showFlash(String(e), true); }
           }}
@@ -406,18 +415,20 @@ function InitPanel({ onInit }: { onInit: (name: string) => void }) {
 function ChapterEntry({ chapter, count, onOpen }: {
   chapter: number; count: number; onOpen: () => void;
 }) {
+  const customLabel = t("basedOnChapter").replace("{chapter}", String(chapter));
+  const custom = count > 0;
   return (
-    <div className="broken-box panel">
+    <div className={"broken-box panel" + (custom ? " custom" : "")}>
       <div className="panel-head">
         <h2>{t("chapterConfig")}</h2>
         <button className="btn small" onClick={onOpen}>{t("configure")}{count > 0 ? ` ✎${count}` : ""}</button>
       </div>
-      <div className="chapter-info">
+      <div className={"chapter-info" + (custom ? " custom" : "")}>
         <span className="ci-row">
           {t("currentChapter")}: {chapter > 0 ? `Ch.${chapter}` : "—"}
         </span>
         <span className="ci-row ci-sub">
-          {count > 0 ? `${count} ${t("overridesActive")}` : t("noOverrides")}
+          {custom ? `${customLabel} (${count})` : t("noOverrides")}
         </span>
       </div>
     </div>
@@ -533,35 +544,46 @@ function RunsLog({ runs }: { runs: RunEntry[] }) {
 function ChapterConfigPage({ config, onBack, onSaveAll }: {
   config: ChapterConfig | null;
   onBack: () => void;
-  onSaveAll: (edits: Record<string, unknown>) => void;
+  onSaveAll: (save: ChapterSave) => void;
 }) {
-  // unsaved per-property edits: clicking an option only stages them; the
-  // top SAVE button writes them all at once (one "saved" flash)
-  const [edits, setEdits] = useState<Record<string, unknown>>({});
-  useEffect(() => { setEdits({}); }, [config]);
-
   if (!config) {
     return <main className="layout"><div className="cell c1r1"><div className="broken-box panel"><p className="hint">…</p></div></div></main>;
   }
 
-  const hasEdits = Object.keys(edits).length > 0;
-  // Pressing Ch.N is an explicit pick (many items are identical across
-  // chapters, so pure derivation can't tell which one you meant). Editing
-  // a value drops the pick and returns to the derived state.
-  const [pickedCh, setPickedCh] = useState<number | null>(null);
-  const edit = (key: string, value: unknown) => {
-    setPickedCh(null);
-    setEdits((e) => ({ ...e, [key]: value }));
-  };
-  // The chapter indicator: the picked chapter while staging a preset,
-  // otherwise DERIVED from the content (Ch.N when it equals that preset,
-  // ★ custom when it differs from every preset). Pure logic in presets.ts.
-  const activeCh = pickedCh ?? matchingChapter(config.items, edits); // 0 = ★ custom
+  return <ChapterConfigEditor config={config} onBack={onBack} onSaveAll={onSaveAll} />;
+}
 
-  const applyPreset = (n: number) => {
-    setPickedCh(n);
-    setEdits(applyPresetValues(config.items, n));
+function ChapterConfigEditor({ config, onBack, onSaveAll }: {
+  config: ChapterConfig;
+  onBack: () => void;
+  onSaveAll: (save: ChapterSave) => void;
+}) {
+
+  // A chapter is a baseline, not a bag of config values. Property edits are
+  // only explicit Kristal overrides; null means restore the baseline.
+  const [chapter, setChapter] = useState(config.chapter);
+  const [edits, setEdits] = useState<Record<string, unknown | null>>({});
+  useEffect(() => {
+    setChapter(config.chapter);
+    setEdits({});
+  }, [config]);
+
+  const chapterChanged = chapter !== config.chapter;
+  const hasChanges = chapterChanged || Object.keys(edits).length > 0;
+  const stageValue = (item: ChapterItem, value: unknown) => {
+    const change = editForValue(item, chapter, value);
+    setEdits((previous) => {
+      const next = { ...previous };
+      if (change === undefined) delete next[item.key];
+      else next[item.key] = change;
+      return next;
+    });
   };
+  const savedCustomCount = config.items.filter((item) => isCustom(item, {})).length;
+  const pendingCount = Object.keys(edits).length;
+  const pending = chapterChanged || pendingCount > 0;
+  const hasSummary = savedCustomCount > 0 || pendingCount > 0;
+  const basedOn = t("basedOnChapter").replace("{chapter}", String(chapter));
 
   return (
     <main className="layout">
@@ -571,13 +593,12 @@ function ChapterConfigPage({ config, onBack, onSaveAll }: {
             <span className="chapter-buttons">
               {[1, 2, 3, 4].map((n) => (
                 <button key={n}
-                  className={"btn small" + (activeCh === n ? " applied" : "")}
-                  onClick={() => applyPreset(n)}>Ch.{n}</button>
+                  className={"btn small" + (chapter === n ? " applied" : "")}
+                  onClick={() => setChapter(n)}>Ch.{n}</button>
               ))}
-              <button className={"btn small" + (activeCh === 0 ? " applied" : "")}
-                disabled={activeCh !== 0} title={t("customConfig")}>★ {t("customConfig")}</button>
-              <button className="btn small danger" disabled={!hasEdits}
-                onClick={() => { onSaveAll(edits); setEdits({}); setPickedCh(null); }}>
+              {hasSummary && <span className={"chapter-custom" + (pending ? " pending" : "")}>★ {basedOn}</span>}
+              <button className="btn small danger" disabled={!hasChanges}
+                onClick={() => onSaveAll({ chapter, changes: edits })}>
                 {t("save")}
               </button>
             </span>
@@ -585,19 +606,17 @@ function ChapterConfigPage({ config, onBack, onSaveAll }: {
           </div>
           <div className="chapter-config-list wide">
             {config.items.filter((i) => i.standard !== false).map((item) => {
-              // Staged edits show yellow (pending save); the green
-              // current value stays highlighted.
-              const editVal = edits[item.key];
-              const hasEdit = editVal !== undefined;
-              const shownVal = hasEdit ? editVal : item.current.value;
-              const shownLabel = hasEdit
-                ? (item.options.find((o) => String(o.value) === String(editVal))?.label ?? String(editVal))
-                : item.current.label;
-              const isEdit = (o: { value: unknown }) =>
-                hasEdit && String(o.value) === String(editVal) &&
-                String(o.value) !== String(item.current.value);
+              const staged = hasStagedEdit(edits, item.key);
+              const custom = isCustom(item, {}) && !staged;
+              const shownVal = effectiveValue(item, chapter, edits);
+              const shownLabel = item.options.find((option) => sameValue(option.value, shownVal))?.label
+                ?? item.chValues?.[String(chapter)]?.label
+                ?? String(shownVal);
+              const isChosen = (option: { value: unknown }) => sameValue(option.value, shownVal);
+              const previousVal = effectiveValue(item, chapter, {});
+              const isPrevious = (option: { value: unknown }) => sameValue(option.value, previousVal);
               return (
-                <div className="cc-row" key={item.key}>
+                <div className={"cc-row" + (staged ? " pending" : custom ? " custom" : "")} key={item.key}>
                   <span className="cc-name" title={item.key}>
                     {item.name ?? item.key}
                     {(item.desc || item.descEn) && (
@@ -605,81 +624,40 @@ function ChapterConfigPage({ config, onBack, onSaveAll }: {
                     )}
                   </span>
                   <span className="cc-control">
-                    {item.options.length <= 1 && typeof item.current.value === "string" ? (
-                      // free-form string config (lightCurrency etc.)
+                    {item.options.length <= 1 && typeof shownVal === "string" ? (
                       <>
-                        <input className={"cc-edit" + (hasEdit ? " pending" : "")} type="text"
+                        <input className={"cc-edit" + (staged ? " pending" : custom ? " custom" : "")} type="text"
                           value={String(shownVal)}
-                          onChange={(e) => edit(item.key, e.target.value)}
+                          onChange={(e) => stageValue(item, e.target.value)}
                           onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }} />
                       </>
                     ) : item.options.length <= 1 ? (
-                      <span className="cc-value applied">{shownLabel || "—"}</span>
+                      <span className={"cc-value" + (staged ? " pending" : custom ? " custom" : "")}>{shownLabel || "—"}</span>
                     ) : item.options.length === 2 ? (
                       <span className="cc-pair">
                         {item.options.map((o) => (
                           <button key={o.label}
                             className={"btn small"
-                              + (String(o.value) === String(item.current.value) ? " applied" : "")
-                              + (isEdit(o) ? " pending" : "")}
-                            onClick={() => { if (String(o.value) !== String(shownVal)) edit(item.key, o.value); }}>
+                              + (staged
+                                ? (isChosen(o) ? " pending" : isPrevious(o) ? " applied" : "")
+                                : (isChosen(o) ? (custom ? " custom" : " applied") : ""))}
+                            onClick={() => stageValue(item, o.value)}>
                             {o.label}
                           </button>
                         ))}
                       </span>
                     ) : (
                       <>
-                        <select className={"cc-select" + (hasEdit ? " pending" : "")} value={String(shownVal)}
+                        <select className={"cc-select" + (staged ? " pending" : custom ? " custom" : "")} value={String(shownVal)}
                           onChange={(e) => {
                             const o = item.options.find((x) => String(x.value) === e.target.value);
-                            if (o) edit(item.key, o.value);
+                            if (o) stageValue(item, o.value);
                           }}>
                           {item.options.map((o) => (
                             <option key={String(o.value)} value={String(o.value)}>{o.label}</option>
                           ))}
                         </select>
                       </>
-                    )}
-                  </span>
-                </div>
-              );
-            })}
-            {config.items.some((i) => i.standard === false) && (
-              <div className="task-group other-config-head">{t("otherConfig")}</div>
-            )}
-            {config.items.filter((i) => i.standard === false).map((item) => {
-              const editVal = edits[item.key];
-              const hasEdit = editVal !== undefined;
-              const shownVal = hasEdit ? editVal : item.current.value;
-              return (
-                <div className="cc-row" key={item.key}>
-                  <span className="cc-name" title={item.key}>
-                    {item.name ?? item.key}
-                    {(item.desc || item.descEn) && (
-                      <span className="cc-desc"> — {lang === "zh" ? (item.desc ?? item.descEn) : (item.descEn ?? item.desc)}</span>
-                    )}
-                  </span>
-                  <span className="cc-control">
-                    {typeof item.current.value === "boolean" ? (
-                      <span className="cc-pair">
-                        {[true, false].map((bv) => (
-                          <button key={String(bv)}
-                            className={"btn small" + (String(shownVal) === String(bv) ? " applied" : "")}
-                            onClick={() => { if (String(shownVal) !== String(bv)) edit(item.key, bv); }}>
-                            {bv ? "是" : "否"}
-                          </button>
-                        ))}
-                      </span>
-                    ) : typeof item.current.value === "string" ? (
-                      <>
-                        <input className={"cc-edit" + (hasEdit ? " pending" : "")} type="text"
-                          placeholder={item.key === "default_encounter" ? t("encounterEmpty") : ""}
-                          value={String(shownVal)}
-                          onChange={(e) => edit(item.key, e.target.value)}
-                          onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }} />
-                      </>
-                    ) : (
-                      <span className="cc-value applied">{item.current.label || "—"}</span>
                     )}
                   </span>
                 </div>

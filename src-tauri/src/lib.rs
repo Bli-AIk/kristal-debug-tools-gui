@@ -2,7 +2,6 @@
 
 mod commands;
 mod config;
-mod jsonc;
 pub mod launcher; // used by the kristal-run sidecar bin
 mod tasks;
 mod term;
@@ -52,8 +51,7 @@ pub fn run() {
             commands::run_task,
             commands::launch_game,
             commands::chapter_config,
-            commands::chapter_config_set,
-            commands::template_chapter,
+            commands::chapter_config_save,
             commands::template_init,
             commands::engine_info_command,
         ])

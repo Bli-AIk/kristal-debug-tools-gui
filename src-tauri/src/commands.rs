@@ -2,6 +2,7 @@
 
 use crate::{config, launcher, tasks, term};
 use serde_json::{json, Map, Value};
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
 use tauri::{Manager, State};
 
@@ -51,24 +52,18 @@ fn settings_file(state: &AppState) -> PathBuf {
 }
 
 
-/// Label text without JSON quoting: "Money" -> Money.
+/// Label text without JSON quoting: "Money" -> Money; booleans and null
+/// use the semantic Chinese labels shown by the option controls.
 fn label_str(v: &Value) -> String {
     match v {
+        Value::Bool(true) => "是".to_string(),
+        Value::Bool(false) => "否".to_string(),
+        Value::Null => "未设置".to_string(),
         Value::String(s) => s.trim_matches('\"').to_string(),
         other => other.to_string(),
     }
 }
 
-
-/// Infer a raw value from a semantic label ("是"/"否"/"未设置").
-fn infer_raw(label: &str) -> Option<Value> {
-    match label {
-        "是" => Some(Value::Bool(true)),
-        "否" => Some(Value::Bool(false)),
-        "未设置" => Some(Value::Null),
-        _ => None,
-    }
-}
 
 fn read_settings(state: &AppState) -> Value {
     std::fs::read_to_string(settings_file(state))
@@ -226,93 +221,74 @@ pub fn launch_game(state: State<AppState>, req: LaunchArgs) -> Result<Value, Str
 pub fn chapter_config(state: State<AppState>) -> Value {
     let defaults = config::chapter_defaults(&state.engine_root);
     let overrides = config::config_overrides(&state.mod_root);
-    // config-features.json carries the human-readable per-chapter values
-    // ("是"/"否"/"noelle"/...) alongside the raw JSON values.
     let features = tasks::config_feature_rows();
+    let chapter = config::current_chapter(&state.mod_root);
+    chapter_config_view(&defaults, &overrides, &features, chapter)
+}
+
+/// Build the chapter-config view. The selectable key set is the union of
+/// the four real engine `configs/chapterN.json` files; config-features.json
+/// only supplies copy and extra option labels.
+fn chapter_config_view(
+    defaults: &[Map<String, Value>],
+    overrides: &Map<String, Value>,
+    features: &BTreeMap<String, BTreeMap<String, Value>>,
+    chapter: i64,
+) -> Value {
 
     let mut keys: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
-    for m in &defaults {
+    for m in defaults {
         keys.extend(m.keys().cloned());
     }
-    keys.extend(features.iter().map(|(k, _)| k.clone()));
-    let chapter = config::current_chapter(&state.mod_root);
 
-    let mut items: Vec<Value> = keys
+    let items: Vec<Value> = keys
         .into_iter()
         .map(|k| {
-            // options: dedup (label, raw) pairs across the 4 chapters
             let frow = features.get(&k);
             let mut options: Vec<(String, Value)> = Vec::new();
-            // semantic label for a chapter, falling back to the first
-            // chapter that has one (some keys lack ch3/ch4 rows)
-            let sem_of = |ch: usize| -> Option<String> {
-                let f = features.get(&k)?;
-                f.get(&ch.to_string())
-                    .or_else(|| (1..=4).find_map(|c| f.get(&c.to_string())))
-                    .and_then(|v| v.as_str())
-                    .map(|s| s.trim_matches('"').to_string())
-            };
-            for ch in 1..=4 {
-                let raw = defaults.get(ch - 1).and_then(|m| m.get(&k)).cloned();
-                let label = features
-                    .get(&k)
-                    .and_then(|f| f.get(&ch.to_string()))
-                    .and_then(|v| v.as_str())
-                    .map(|v| v.trim_matches('\"'));
-                if let Some(label) = label {
-                    // a raw value may be missing from the chapter files —
-                    // infer it from the semantic label where possible
-                    let raw = raw.or_else(|| infer_raw(label));
-                    if let Some(raw) = raw {
-                        if !options.iter().any(|(l, _)| l.as_str() == label) {
-                            options.push((label.to_string(), raw));
-                        }
-                    }
-                }
-            }
-            // 2. candidate values from Kristal's registerOption(...):
-            // expand when the per-chapter labels collapse to one option
-            // (e.g. a boolean that's "是" in every chapter) or none.
-            if options.len() <= 1 {
-                if let Some(opts) = frow.and_then(|f| f.get("opts")).and_then(|v| v.as_array()) {
-                    for v in opts {
-                        let label = (1..=4)
-                            .find_map(|ch| {
-                                let raw = defaults.get(ch - 1).and_then(|m| m.get(&k));
-                                if raw == Some(v) {
-                                    features
-                                        .get(&k)
-                                        .and_then(|f| f.get(&ch.to_string()))
-                                        .and_then(|x| x.as_str())
-                                        .map(|s| s.to_string())
-                                } else {
-                                    None
-                                }
-                            })
-                            .unwrap_or_else(|| match v {
-                                Value::Bool(true) => "是".to_string(),
-                                Value::Bool(false) => "否".to_string(),
-                                Value::String(s) => s.trim_matches('\"').to_string(),
-                                other => other.to_string(),
-                            });
-                        if !options.iter().any(|(l, _)| *l == label) {
-                            options.push((label, v.clone()));
-                        }
-                    }
-                }
-            }
-            if options.is_empty() {
-                // 3. feature row has no labels either — use the raw values
-                // as labels
+            let label_for = |raw: &Value| -> String {
+                // The feature table only has old ch1/ch2 labels for some
+                // options. Match labels by raw value instead of carrying a
+                // ch1 label into chapters 3/4 with a different default.
                 for ch in 1..=4 {
-                    if let Some(raw) = defaults.get(ch - 1).and_then(|m| m.get(&k)) {
-                        let label = label_str(raw);
-                        if !options.iter().any(|(l, _)| *l == label) {
-                            options.push((label, raw.clone()));
+                    if defaults.get(ch - 1).and_then(|m| m.get(&k)) == Some(raw) {
+                        if let Some(label) = frow
+                            .and_then(|f| f.get(&ch.to_string()))
+                            .and_then(|v| v.as_str())
+                        {
+                            return label.trim_matches('"').to_string();
                         }
                     }
                 }
+                label_str(raw)
+            };
+
+            // All native chapter defaults are valid choices. Add the menu's
+            // declared alternatives too, because several defaults happen to
+            // be identical across every chapter.
+            for ch in 1..=4 {
+                if let Some(raw) = defaults.get(ch - 1).and_then(|m| m.get(&k)) {
+                    if !options.iter().any(|(_, value)| value == raw) {
+                        options.push((label_for(raw), raw.clone()));
+                    }
+                }
             }
+            if let Some(opts) = frow.and_then(|f| f.get("opts")).and_then(|v| v.as_array()) {
+                for value in opts {
+                    if !options.iter().any(|(_, existing)| existing == value) {
+                        options.push((label_for(value), value.clone()));
+                    }
+                }
+            }
+
+            // Keep an existing non-standard override selectable and visible
+            // instead of making a select control look blank.
+            if let Some(value) = overrides.get(&k) {
+                if !options.iter().any(|(_, existing)| existing == value) {
+                    options.push((label_for(value), value.clone()));
+                }
+            }
+
             let (current, is_override) = match overrides.get(&k) {
                 Some(ov) => {
                     let label = options
@@ -322,34 +298,26 @@ pub fn chapter_config(state: State<AppState>) -> Value {
                         .unwrap_or_else(|| label_str(ov));
                     (json!({ "label": label, "value": ov.clone() }), true)
                 }
-                None => match defaults.get(chapter.saturating_sub(1) as usize).and_then(|m| m.get(&k)) {
-                    Some(raw) => {
-                        let label = sem_of(chapter as usize).unwrap_or_else(|| label_str(raw));
-                        (json!({ "label": label, "value": raw.clone() }), false)
-                    }
-                    // key missing from the chapter files: use the semantic
-                    // label (any chapter) and infer the raw value
-                    None => match sem_of(chapter as usize) {
-                        Some(label) => {
-                            let value = infer_raw(&label)
-                                .unwrap_or_else(|| Value::String(label.clone()));
-                            (json!({ "label": label, "value": value }), false)
-                        }
-                        None => (json!({ "label": "", "value": Value::Null }), false),
-                    },
-                },
+                None => {
+                    let raw = defaults
+                        .get(chapter.saturating_sub(1) as usize)
+                        .and_then(|m| m.get(&k))
+                        .cloned()
+                        .unwrap_or(Value::Null);
+                    let label = label_for(&raw);
+                    (json!({ "label": label, "value": raw }), false)
+                }
             };
-            // per-chapter default values (semantic label + raw value) so
-            // the UI can preview another chapter before applying it
+
             let ch_values: Map<String, Value> = (1..=4)
                 .map(|ch| {
-                    let raw = defaults.get(ch - 1).and_then(|m| m.get(&k));
-                    let label = sem_of(ch).or_else(|| raw.map(label_str)).unwrap_or_default();
-                    let value = raw
+                    let raw = defaults
+                        .get(ch - 1)
+                        .and_then(|m| m.get(&k))
                         .cloned()
-                        .or_else(|| infer_raw(label.as_str()))
                         .unwrap_or(Value::Null);
-                    (ch.to_string(), json!({ "label": label, "value": value }))
+                    let label = label_for(&raw);
+                    (ch.to_string(), json!({ "label": label, "value": raw }))
                 })
                 .collect();
             json!({
@@ -361,66 +329,53 @@ pub fn chapter_config(state: State<AppState>) -> Value {
                 "current": current,
                 "chValues": ch_values,
                 "isOverride": is_override,
-                "standard": frow.and_then(|f| f.get("name")).is_some(),
+                "standard": true,
             })
         })
         .collect();
-
-    // mod.json also carries an encounter setting (config.kristal) — a
-    // free-form string outside the Kristal mod menu; empty = none.
-    let enc_override = overrides.get("default_encounter");
-    items.push(json!({
-        "key": "default_encounter",
-        "name": "Encounter",
-        "desc": "遭遇战 ID，留空为无",
-        "descEn": "Encounter ID; empty = none",
-        "options": [],
-        "current": json!({
-            "label": enc_override.and_then(|v| v.as_str()).unwrap_or(""),
-            "value": enc_override.and_then(|v| v.as_str()).unwrap_or(""),
-        }),
-        "chValues": {},
-        "isOverride": enc_override.is_some(),
-        "standard": false,
-    }));
 
     json!({ "chapter": chapter, "items": items })
 }
 
 #[derive(serde::Deserialize)]
-pub struct ChapterConfigSetArgs {
-    pub key: String,
-    pub value: Option<Value>,
+pub struct ChapterConfigSaveArgs {
+    pub chapter: i64,
+    #[serde(default)]
+    pub changes: BTreeMap<String, Option<Value>>,
+}
+
+fn valid_config_key(key: &str) -> bool {
+    !key.is_empty()
+        && key.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+        && !key.chars().next().map(|c| c.is_ascii_digit()).unwrap_or(true)
+}
+
+fn unknown_change_keys(
+    defaults: &[Map<String, Value>],
+    changes: &BTreeMap<String, Option<Value>>,
+) -> Vec<String> {
+    let valid: BTreeSet<String> = defaults.iter().flat_map(|m| m.keys().cloned()).collect();
+    changes
+        .keys()
+        .filter(|key| !valid.contains(*key))
+        .cloned()
+        .collect()
 }
 
 #[tauri::command]
-pub fn chapter_config_set(state: State<AppState>, req: ChapterConfigSetArgs) -> Result<Value, String> {
-    if req.key.is_empty()
-        || !req
-            .key
-            .chars()
-            .all(|c| c.is_ascii_alphanumeric() || c == '_')
-        || req.key.chars().next().map(|c| c.is_ascii_digit()).unwrap_or(true)
-    {
-        return Err("invalid config key".into());
-    }
-    config::mod_config_set(&state.mod_root, &req.key, req.value)?;
-    Ok(json!({ "ok": true }))
-}
-
-#[tauri::command]
-pub fn template_chapter(state: State<AppState>, chapter: i64) -> Result<Value, String> {
-    if !(1..=4).contains(&chapter) {
+pub fn chapter_config_save(state: State<AppState>, req: ChapterConfigSaveArgs) -> Result<Value, String> {
+    if !(1..=4).contains(&req.chapter) {
         return Err("chapter must be 1-4".into());
     }
-    let path = state.mod_root.join("mod.json");
-    let text = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
-    let re = regex::Regex::new(r#"("chapter"\s*:\s*)[0-9]+"#).unwrap();
-    if !re.is_match(&text) {
-        return Err("chapter field not found in mod.json".into());
+    if req.changes.keys().any(|key| !valid_config_key(key)) {
+        return Err("invalid config key".into());
     }
-    let out = re.replace(&text, format!("${{1}}{}", chapter)).to_string();
-    std::fs::write(&path, out).map_err(|e| e.to_string())?;
+    let unknown = unknown_change_keys(&config::chapter_defaults(&state.engine_root), &req.changes);
+    if !unknown.is_empty() {
+        return Err(format!("unknown chapter config key: {}", unknown.join(", ")));
+    }
+
+    config::mod_chapter_config_save(&state.mod_root, req.chapter, &req.changes)?;
     Ok(json!({ "ok": true }))
 }
 
@@ -463,3 +418,180 @@ pub fn engine_info_command(state: State<AppState>) -> Value {
 // silence unused warning for Command import in non-listed paths
 #[allow(unused)]
 fn _unused(_: &PathBuf) {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Union of the real engine configs/chapter1..4.json keys (47 keys).
+    const REAL_DEFAULT_KEYS: &[&str] = &[
+        "awakeMessages",
+        "canTossLightWeapons",
+        "checkActDescription",
+        "damageUnderflowFix",
+        "darkCandyForm",
+        "darkCurrency",
+        "darkCurrencyShort",
+        "darkTextboxStyle",
+        "defaultInvulnTime",
+        "enableRecruits",
+        "enemyAuras",
+        "enemyBarPercentages",
+        "growStronger",
+        "growStrongerChara",
+        "healthConversion",
+        "keepTensionAfterBattle",
+        "lessEquipments",
+        "lightCurrency",
+        "lightCurrencyShort",
+        "lightTextboxStyle",
+        "mercyBar",
+        "mercyMessages",
+        "newChoicers",
+        "newShopSpaceUI",
+        "newSpellCostCalculation",
+        "oldDualHealFormula",
+        "oldGameOver",
+        "oldPacify",
+        "oldRudeBuster",
+        "oldTensionBar",
+        "oldUIPositions",
+        "overworldSpells",
+        "pacifyGlow",
+        "partyActions",
+        "prioritySpareableText",
+        "pushBlockInputLock",
+        "ralseiStyle",
+        "recruitsProgressSpaces",
+        "shopSpaceUIFont",
+        "smallSaveMenu",
+        "soulInvBetweenWaves",
+        "speechBubble",
+        "storageSlots",
+        "susieStyle",
+        "targetSystem",
+        "tiredMessages",
+        "tpName",
+    ];
+
+    /// Build four chapter-default maps. Every real key is present; keys not
+    /// in `rows` default to null so the key set still exercises the union.
+    fn defaults_for(rows: &[(&str, Value, Value, Value, Value)]) -> Vec<Map<String, Value>> {
+        let mut maps: Vec<Map<String, Value>> = (0..4).map(|_| Map::new()).collect();
+        for (key, ch1, ch2, ch3, ch4) in rows {
+            maps[0].insert(key.to_string(), ch1.clone());
+            maps[1].insert(key.to_string(), ch2.clone());
+            maps[2].insert(key.to_string(), ch3.clone());
+            maps[3].insert(key.to_string(), ch4.clone());
+        }
+        for key in REAL_DEFAULT_KEYS {
+            for map in &mut maps {
+                if !map.contains_key(*key) {
+                    map.insert(key.to_string(), Value::Null);
+                }
+            }
+        }
+        maps
+    }
+
+    fn item<'a>(view: &'a Value, key: &str) -> &'a Value {
+        view["items"]
+            .as_array()
+            .expect("items array")
+            .iter()
+            .find(|item| item["key"].as_str() == Some(key))
+            .expect("item")
+    }
+
+    #[test]
+    fn view_keys_are_the_real_chapter_defaults_union() {
+        let defaults = defaults_for(&[]);
+        let view = chapter_config_view(&defaults, &Map::new(), &BTreeMap::new(), 1);
+        let keys: Vec<String> = view["items"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|item| item["key"].as_str().unwrap().to_string())
+            .collect();
+
+        let expected: Vec<String> = REAL_DEFAULT_KEYS.iter().map(|s| s.to_string()).collect();
+        assert_eq!(keys, expected);
+        assert!(keys.contains(&"storageSlots".to_string()));
+        assert!(!keys.contains(&"enableStorage".to_string()));
+        assert!(!keys.contains(&"default_encounter".to_string()));
+    }
+
+    #[test]
+    fn override_wins_over_selected_chapter_default() {
+        let defaults = defaults_for(&[(
+            "enemyAuras",
+            Value::Bool(false),
+            Value::Bool(true),
+            Value::Bool(true),
+            Value::Bool(true),
+        )]);
+        let mut overrides = Map::new();
+        overrides.insert("enemyAuras".to_string(), Value::Bool(false));
+
+        let view = chapter_config_view(&defaults, &overrides, &BTreeMap::new(), 2);
+        let enemy_auras = item(&view, "enemyAuras");
+
+        assert_eq!(enemy_auras["isOverride"], true);
+        assert_eq!(enemy_auras["current"]["value"], false);
+        assert_eq!(enemy_auras["current"]["label"], "否");
+    }
+
+    #[test]
+    fn boolean_and_null_labels_are_semantic() {
+        let defaults = defaults_for(&[
+            (
+                "growStronger",
+                Value::Bool(false),
+                Value::Bool(true),
+                Value::Bool(true),
+                Value::Bool(false),
+            ),
+            (
+                "growStrongerChara",
+                Value::Null,
+                Value::String("noelle".into()),
+                Value::String("noelle".into()),
+                Value::String("noelle".into()),
+            ),
+        ]);
+        let view = chapter_config_view(&defaults, &Map::new(), &BTreeMap::new(), 1);
+
+        let grow = item(&view, "growStronger");
+        assert_eq!(grow["current"]["label"], "否");
+        assert_eq!(grow["current"]["value"], false);
+        let labels: Vec<&str> = grow["options"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|o| o["label"].as_str().unwrap())
+            .collect();
+        assert!(labels.contains(&"是"));
+        assert!(labels.contains(&"否"));
+
+        let chara = item(&view, "growStrongerChara");
+        assert_eq!(chara["current"]["label"], "未设置");
+        assert_eq!(chara["current"]["value"], Value::Null);
+        assert_eq!(chara["chValues"]["1"]["label"], "未设置");
+    }
+
+    #[test]
+    fn save_rejects_keys_outside_the_real_chapter_defaults() {
+        let defaults = defaults_for(&[(
+            "storageSlots",
+            Value::from(0),
+            Value::from(24),
+            Value::from(24),
+            Value::from(36),
+        )]);
+        let mut changes = BTreeMap::new();
+        changes.insert("enableStorage".to_string(), Some(Value::Bool(false)));
+        changes.insert("storageSlots".to_string(), Some(Value::from(12)));
+
+        assert_eq!(unknown_change_keys(&defaults, &changes), vec!["enableStorage"]);
+    }
+}
