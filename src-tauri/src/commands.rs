@@ -50,6 +50,15 @@ fn settings_file(state: &AppState) -> PathBuf {
     state.mod_root.join(".tools").join("gui").join("settings.json")
 }
 
+
+/// Label text without JSON quoting: "Money" -> Money.
+fn label_str(v: &Value) -> String {
+    match v {
+        Value::String(s) => s.trim_matches('\"').to_string(),
+        other => other.to_string(),
+    }
+}
+
 fn read_settings(state: &AppState) -> Value {
     std::fs::read_to_string(settings_file(state))
         .ok()
@@ -228,7 +237,8 @@ pub fn chapter_config(state: State<AppState>) -> Value {
                 let label = features
                     .get(&k)
                     .and_then(|f| f.get(&ch.to_string()))
-                    .and_then(|v| v.as_str());
+                    .and_then(|v| v.as_str())
+                    .map(|v| v.trim_matches('\"'));
                 if let Some(label) = label {
                     // a raw value may be missing from the chapter files —
                     // infer it from the semantic label where possible
@@ -267,7 +277,7 @@ pub fn chapter_config(state: State<AppState>) -> Value {
                             .unwrap_or_else(|| match v {
                                 Value::Bool(true) => "是".to_string(),
                                 Value::Bool(false) => "否".to_string(),
-                                Value::String(s) => s.clone(),
+                                Value::String(s) => s.trim_matches('\"').to_string(),
                                 other => other.to_string(),
                             });
                         if !options.iter().any(|(l, _)| *l == label) {
@@ -281,7 +291,7 @@ pub fn chapter_config(state: State<AppState>) -> Value {
                 // as labels
                 for ch in 1..=4 {
                     if let Some(raw) = defaults.get(ch - 1).and_then(|m| m.get(&k)) {
-                        let label = raw.to_string();
+                        let label = label_str(raw);
                         if !options.iter().any(|(l, _)| *l == label) {
                             options.push((label, raw.clone()));
                         }
@@ -294,7 +304,7 @@ pub fn chapter_config(state: State<AppState>) -> Value {
                         .iter()
                         .find(|(_, r)| r == ov)
                         .map(|(l, _)| l.clone())
-                        .unwrap_or_else(|| ov.to_string());
+                        .unwrap_or_else(|| label_str(ov));
                     (json!({ "label": label, "value": ov.clone() }), true)
                 }
                 None => match defaults.get(chapter.saturating_sub(1) as usize).and_then(|m| m.get(&k)) {
@@ -303,8 +313,8 @@ pub fn chapter_config(state: State<AppState>) -> Value {
                             .get(&k)
                             .and_then(|f| f.get(&chapter.to_string()))
                             .and_then(|v| v.as_str())
-                            .map(|s| s.to_string())
-                            .unwrap_or_else(|| raw.to_string());
+                            .map(|s| s.trim_matches('\"').to_string())
+                            .unwrap_or_else(|| label_str(raw));
                         (json!({ "label": label, "value": raw.clone() }), false)
                     }
                     None => (json!({ "label": "", "value": Value::Null }), false),
@@ -319,8 +329,8 @@ pub fn chapter_config(state: State<AppState>) -> Value {
                         .get(&k)
                         .and_then(|f| f.get(&ch.to_string()))
                         .and_then(|v| v.as_str())
-                        .map(|s| s.to_string())
-                        .or_else(|| raw.map(|r| r.to_string()))
+                        .map(|s| s.trim_matches('\"').to_string())
+                        .or_else(|| raw.map(label_str))
                         .unwrap_or_default();
                     (
                         ch.to_string(),
