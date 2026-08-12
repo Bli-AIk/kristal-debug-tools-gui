@@ -573,7 +573,17 @@ function ChapterConfigPage({ config, onBack, onPickChapter, onSet }: {
                     )}
                   </span>
                   <span className="cc-control">
-                    {item.options.length <= 1 ? (
+                    {item.options.length <= 1 && typeof item.current.value === "string" ? (
+                      // free-form string config (lightCurrency etc.): an
+                      // editable field, Enter/blur writes the override
+                      <input className="cc-edit" type="text"
+                        defaultValue={String(item.current.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                        onBlur={(e) => {
+                          const v = e.target.value.trim();
+                          if (v && v !== String(item.current.value)) onSet(item.key, v);
+                        }} />
+                    ) : item.options.length <= 1 ? (
                       <span className="cc-value applied">{item.current.label || "—"}</span>
                     ) : item.options.length === 2 ? (
                       <span className="cc-pair">

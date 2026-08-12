@@ -482,6 +482,16 @@ input:focus, select:focus { outline: none; border-color: var(--yellow); }
 .cc-pair { display: flex; gap: 6px; }
 .cc-value { color: var(--dim); }
 .cc-select.pending { border-color: var(--yellow); }
+.cc-edit {
+  background: #000;
+  color: var(--text);
+  border: 2px solid var(--text);
+  padding: 0.2em 0.5em;
+  font-family: inherit;
+  font-size: 0.85rem;
+  min-width: 120px;
+}
+.cc-edit:focus { border-color: var(--yellow); outline: none; }
 .cc-select {
   background: #000;
   color: var(--text);

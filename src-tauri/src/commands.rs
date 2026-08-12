@@ -211,6 +211,7 @@ pub fn chapter_config(state: State<AppState>) -> Value {
         .into_iter()
         .map(|k| {
             // options: dedup (label, raw) pairs across the 4 chapters
+            let frow = features.get(&k);
             let mut options: Vec<(String, Value)> = Vec::new();
             for ch in 1..=4 {
                 let raw = defaults.get(ch - 1).and_then(|m| m.get(&k));
@@ -225,8 +226,35 @@ pub fn chapter_config(state: State<AppState>) -> Value {
                 }
             }
             if options.is_empty() {
-                // feature row has no labels (or missing) — use the raw
-                // values as labels
+                // 2. candidate values from Kristal's registerOption(...)
+                if let Some(opts) = frow.and_then(|f| f.get("opts")).and_then(|v| v.as_array()) {
+                    for v in opts {
+                        let label = (1..=4)
+                            .find_map(|ch| {
+                                let raw = defaults.get(ch - 1).and_then(|m| m.get(&k));
+                                if raw == Some(v) {
+                                    features
+                                        .get(&k)
+                                        .and_then(|f| f.get(&ch.to_string()))
+                                        .and_then(|x| x.as_str())
+                                        .map(|s| s.to_string())
+                                } else {
+                                    None
+                                }
+                            })
+                            .unwrap_or_else(|| match v {
+                                Value::String(s) => s.clone(),
+                                other => other.to_string(),
+                            });
+                        if !options.iter().any(|(l, _)| *l == label) {
+                            options.push((label, v.clone()));
+                        }
+                    }
+                }
+            }
+            if options.is_empty() {
+                // 3. feature row has no labels either — use the raw values
+                // as labels
                 for ch in 1..=4 {
                     if let Some(raw) = defaults.get(ch - 1).and_then(|m| m.get(&k)) {
                         let label = raw.to_string();
@@ -236,25 +264,28 @@ pub fn chapter_config(state: State<AppState>) -> Value {
                     }
                 }
             }
-            let (current, is_override) = if let Some(ov) = overrides.get(&k) {
-                let label = options
-                    .iter()
-                    .find(|(_, r)| r == ov)
-                    .map(|(l, _)| l.clone())
-                    .unwrap_or_else(|| ov.to_string());
-                (json!({ "label": label, "value": ov.clone() }), true)
-            } else if let Some(raw) = defaults.get(chapter.saturating_sub(1) as usize).and_then(|m| m.get(&k)) {
-                let label = features
-                    .get(&k)
-                    .and_then(|f| f.get(&chapter.to_string()))
-                    .and_then(|v| v.as_str())
-                    .map(|s| s.to_string())
-                    .unwrap_or_else(|| raw.to_string());
-                (json!({ "label": label, "value": raw.clone() }), false)
-            } else {
-                (json!({ "label": "", "value": Value::Null }), false)
+            let (current, is_override) = match overrides.get(&k) {
+                Some(ov) => {
+                    let label = options
+                        .iter()
+                        .find(|(_, r)| r == ov)
+                        .map(|(l, _)| l.clone())
+                        .unwrap_or_else(|| ov.to_string());
+                    (json!({ "label": label, "value": ov.clone() }), true)
+                }
+                None => match defaults.get(chapter.saturating_sub(1) as usize).and_then(|m| m.get(&k)) {
+                    Some(raw) => {
+                        let label = features
+                            .get(&k)
+                            .and_then(|f| f.get(&chapter.to_string()))
+                            .and_then(|v| v.as_str())
+                            .map(|s| s.to_string())
+                            .unwrap_or_else(|| raw.to_string());
+                        (json!({ "label": label, "value": raw.clone() }), false)
+                    }
+                    None => (json!({ "label": "", "value": Value::Null }), false),
+                },
             };
-            let frow = features.get(&k);
             // per-chapter default values (semantic label + raw value) so
             // the UI can preview another chapter before applying it
             let ch_values: Map<String, Value> = (1..=4)

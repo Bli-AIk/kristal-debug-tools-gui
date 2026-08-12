@@ -11,7 +11,11 @@
   "ch1": "是",
   "ch2": "否",
   "name": "Small Save Menu",
-  "descEn": "Single-file save menu with no storage/recruits options"
+  "descEn": "Single-file save menu with no storage/recruits options",
+  "opts": [
+   true,
+   false
+  ]
  },
  {
   "key": "partyActions",
@@ -19,7 +23,11 @@
   "ch1": "否",
   "ch2": "是",
   "name": "X-Actions",
-  "descEn": "Whether X-Actions appear in spell menu by default"
+  "descEn": "Whether X-Actions appear in spell menu by default",
+  "opts": [
+   true,
+   false
+  ]
  },
  {
   "key": "growStronger",
@@ -27,7 +35,11 @@
   "ch1": "否",
   "ch2": "是",
   "name": "Grow Stronger",
-  "descEn": "Stat increases after defeating an enemy with violence"
+  "descEn": "Stat increases after defeating an enemy with violence",
+  "opts": [
+   true,
+   false
+  ]
  },
  {
   "key": "growStrongerChara",
@@ -35,7 +47,14 @@
   "ch1": "未设置",
   "ch2": "\"noelle\"",
   "name": "Grow Stronger Character",
-  "descEn": "The character who grows stronger if they're in the party"
+  "descEn": "The character who grows stronger if they're in the party",
+  "opts": [
+   false,
+   "kris",
+   "ralsei",
+   "susie",
+   "noelle"
+  ]
  },
  {
   "key": "susieStyle",
@@ -43,7 +62,11 @@
   "ch1": "1",
   "ch2": "2",
   "name": "Susie Style",
-  "descEn": "What sprite set Susie should use"
+  "descEn": "What sprite set Susie should use",
+  "opts": [
+   1,
+   2
+  ]
  },
  {
   "key": "ralseiStyle",
@@ -51,7 +74,11 @@
   "ch1": "1",
   "ch2": "2",
   "name": "Ralsei Style",
-  "descEn": "What sprite set Ralsei should use"
+  "descEn": "What sprite set Ralsei should use",
+  "opts": [
+   1,
+   2
+  ]
  },
  {
   "key": "oldTensionBar",
@@ -59,7 +86,11 @@
   "ch1": "是",
   "ch2": "否",
   "name": "Old Tension Bar",
-  "descEn": "Whether the Tension Bar uses blocky corners or not."
+  "descEn": "Whether the Tension Bar uses blocky corners or not.",
+  "opts": [
+   true,
+   false
+  ]
  },
  {
   "key": "oldUIPositions",
@@ -67,7 +98,11 @@
   "ch1": "是",
   "ch2": "否",
   "name": "Old UI Positions",
-  "descEn": "Whether to use Chapter 1 positions of UI elements or not."
+  "descEn": "Whether to use Chapter 1 positions of UI elements or not.",
+  "opts": [
+   true,
+   false
+  ]
  },
  {
   "key": "oldGameOver",
@@ -75,7 +110,11 @@
   "ch1": "是",
   "ch2": "否",
   "name": "Old Game Over",
-  "descEn": "Whether to use Chapter 1 game over or not."
+  "descEn": "Whether to use Chapter 1 game over or not.",
+  "opts": [
+   true,
+   false
+  ]
  },
  {
   "key": "targetSystem",
@@ -83,7 +122,11 @@
   "ch1": "是",
   "ch2": "否",
   "name": "Targeting System",
-  "descEn": "Whether battles should use the targeting system or not"
+  "descEn": "Whether battles should use the targeting system or not",
+  "opts": [
+   true,
+   false
+  ]
  },
  {
   "key": "speechBubble",
@@ -91,7 +134,11 @@
   "ch1": "\"圆形\"",
   "ch2": "\"赛博\"",
   "name": "Speech Bubble Style",
-  "descEn": "The default style for enemy speech bubbles"
+  "descEn": "The default style for enemy speech bubbles",
+  "opts": [
+   "round",
+   "cyber"
+  ]
  },
  {
   "key": "enemyAuras",
@@ -99,31 +146,47 @@
   "ch1": "否",
   "ch2": "是",
   "name": "Enemy Aura",
-  "descEn": "The red aura around enemies"
+  "descEn": "The red aura around enemies",
+  "opts": [
+   true,
+   false
+  ]
  },
  {
   "key": "mercyMessages",
-  "desc": "敌人的怜悯度提升时是否显示 +X%",
+  "desc": "敌人的 mercy 提升时是否显示 +X%",
   "ch1": "否",
   "ch2": "是",
   "name": "Mercy Messages",
-  "descEn": "Seeing +X% when an enemy's mercy goes up"
+  "descEn": "Seeing +X% when an enemy's mercy goes up",
+  "opts": [
+   true,
+   false
+  ]
  },
  {
   "key": "mercyBar",
-  "desc": "是否显示怜悯条",
+  "desc": "是否显示 mercy 条",
   "ch1": "否",
   "ch2": "是",
   "name": "Mercy Bar",
-  "descEn": "Whether the mercy bar should appear or not"
+  "descEn": "Whether the mercy bar should appear or not",
+  "opts": [
+   true,
+   false
+  ]
  },
  {
   "key": "enemyBarPercentages",
-  "desc": "HP 和怜悯条是否显示百分比",
+  "desc": "HP 和 mercy 条是否显示百分比",
   "ch1": "否",
   "ch2": "是",
   "name": "Stat Bar Percentages",
-  "descEn": "Whether the HP and Mercy bars should show percentages"
+  "descEn": "Whether the HP and Mercy bars should show percentages",
+  "opts": [
+   true,
+   false
+  ]
  },
  {
   "key": "prioritySpareableText",
@@ -131,7 +194,11 @@
   "ch1": "是",
   "ch2": "否",
   "name": "Priority Spareable Text",
-  "descEn": "Whether enemies' spareable text should be prioritized over tired / low-health text"
+  "descEn": "Whether enemies' spareable text should be prioritized over tired / low-health text",
+  "opts": [
+   true,
+   false
+  ]
  },
  {
   "key": "pushBlockInputLock",
@@ -139,7 +206,11 @@
   "ch1": "是",
   "ch2": "是",
   "name": "Push Block Input Locking",
-  "descEn": "Whether pushing a block should freeze the player"
+  "descEn": "Whether pushing a block should freeze the player",
+  "opts": [
+   true,
+   false
+  ]
  },
  {
   "key": "keepTensionAfterBattle",
@@ -147,7 +218,11 @@
   "ch1": "否",
   "ch2": "否",
   "name": "Keep Tension After Battle",
-  "descEn": "Whether TP should be kept after battle instead of reset"
+  "descEn": "Whether TP should be kept after battle instead of reset",
+  "opts": [
+   true,
+   false
+  ]
  },
  {
   "key": "overworldSpells",
@@ -155,7 +230,11 @@
   "ch1": "是",
   "ch2": "否",
   "name": "Overworld Spells",
-  "descEn": "Whether spells should be usable in the overworld"
+  "descEn": "Whether spells should be usable in the overworld",
+  "opts": [
+   true,
+   false
+  ]
  },
  {
   "key": "damageUnderflowFix",
@@ -163,7 +242,11 @@
   "ch1": "是",
   "ch2": "是",
   "name": "Damage Underflow Fix",
-  "descEn": "If disabled, negative enemy damage heals the enemy"
+  "descEn": "If disabled, negative enemy damage heals the enemy",
+  "opts": [
+   true,
+   false
+  ]
  },
  {
   "key": "darkCurrency",
@@ -199,120 +282,205 @@
   "key": "awakeMessages",
   "desc": "敌人醒来时显示解除饶恕提示消息",
   "name": "Awake Messages",
-  "descEn": "Whether an enemy leaving TIRED should display an AWAKE message"
+  "descEn": "Whether an enemy leaving TIRED should display an AWAKE message",
+  "opts": [
+   true,
+   false
+  ]
  },
  {
   "key": "canTossLightWeapons",
   "desc": "光世界武器是否可以被丢弃",
   "name": "Can Toss Light Weapons",
-  "descEn": "Whether you can toss weapon items in the Light World inventory"
+  "descEn": "Whether you can toss weapon items in the Light World inventory",
+  "opts": [
+   true,
+   false
+  ]
  },
  {
   "key": "checkActDescription",
   "desc": "战斗中“检查”动作是否显示“无用的分析”",
   "name": "Check Act Description",
-  "descEn": "Whether the \"Check\" act in battle says \"Useless analysis\" or not"
+  "descEn": "Whether the \"Check\" act in battle says \"Useless analysis\" or not",
+  "opts": [
+   true,
+   false
+  ]
  },
  {
   "key": "darkCandyForm",
   "desc": "使用 Dark Candy 还是 Darker Candy",
   "name": "Dark Candy Form",
-  "descEn": "Whether to use Dark Candy or Darker Candy"
+  "descEn": "Whether to use Dark Candy or Darker Candy",
+  "opts": [
+   "dark",
+   "darker"
+  ]
  },
  {
   "key": "darkTextboxStyle",
   "desc": "暗世界默认的文本框样式",
   "name": "Dark Textbox Style",
-  "descEn": "Textbox style used in the dark world (by default)"
+  "descEn": "Textbox style used in the dark world (by default)",
+  "opts": [
+   "light",
+   "dark",
+   "dark_old"
+  ]
  },
  {
   "key": "defaultInvulnTime",
   "desc": "默认无敌时间",
   "name": "Default Invulnerability Time",
-  "descEn": "The default length of invulnerability given to the player when hit by a bullet, in frames. (30 frames = 1 second)"
+  "descEn": "The default length of invulnerability given to the player when hit by a bullet, in frames. (30 frames = 1 second)",
+  "opts": [
+   30,
+   40,
+   60
+  ]
  },
  {
   "key": "enableRecruits",
   "desc": "启用招募消息与招募菜单",
   "name": "Enable Recruits",
-  "descEn": "Enable recruit messages and menu"
+  "descEn": "Enable recruit messages and menu",
+  "opts": [
+   true,
+   false
+  ]
  },
  {
   "key": "healthConversion",
   "desc": "切换光/暗世界时是否（正确地）转换生命值",
   "name": "Health Conversion",
-  "descEn": "Whether health gets converted (properly) or not between the light and dark worlds"
+  "descEn": "Whether health gets converted (properly) or not between the light and dark worlds",
+  "opts": [
+   true,
+   false
+  ]
  },
  {
   "key": "lessEquipments",
   "desc": "减少物品栏中可用的武器和防具槽位",
   "name": "Less Equipments",
-  "descEn": "Reduces the amount of available weapons and armor slots in the inventory"
+  "descEn": "Reduces the amount of available weapons and armor slots in the inventory",
+  "opts": [
+   true,
+   false
+  ]
  },
  {
   "key": "lightTextboxStyle",
   "desc": "光世界默认的文本框样式",
   "name": "Light Textbox Style",
-  "descEn": "Textbox style used in the light world (by default)"
+  "descEn": "Textbox style used in the light world (by default)",
+  "opts": [
+   "light",
+   "dark",
+   "dark_old"
+  ]
  },
  {
   "key": "newShopSpaceUI",
   "desc": "商店是否使用同时显示物品栏与仓库空间的新空间显示",
   "name": "New Shop Space UI",
-  "descEn": "Whether shops use the new display for remaining space"
+  "descEn": "Whether shops use the new display for remaining space",
+  "opts": [
+   true,
+   false
+  ]
  },
  {
   "key": "oldDualHealFormula",
   "desc": "使用旧版 Dual Heal 回复量计算",
   "name": "Old Dual Heal Formula",
-  "descEn": "Whether to use Chapter 1 Dual Heal calculation or not"
+  "descEn": "Whether to use Chapter 1 Dual Heal calculation or not",
+  "opts": [
+   true,
+   false
+  ]
  },
  {
   "key": "oldPacify",
   "desc": "移除安抚（Pacify）魔法的动画",
   "name": "Old Pacify",
-  "descEn": "Whether to remove the animation from the Pacify spell"
+  "descEn": "Whether to remove the animation from the Pacify spell",
+  "opts": [
+   true,
+   false
+  ]
  },
  {
   "key": "oldRudeBuster",
   "desc": "使用旧版 Rude Buster 伤害计算与效果",
   "name": "Old Rude Buster",
-  "descEn": "Whether to use Chapter 1/2 Rude Buster damage calculation and effect."
+  "descEn": "Whether to use Chapter 1/2 Rude Buster damage calculation and effect.",
+  "opts": [
+   true,
+   false
+  ]
  },
  {
   "key": "pacifyGlow",
   "desc": "敌人疲劳时安抚（及其他魔法）是否发光",
   "name": "Tired/Pacify Glow",
-  "descEn": "Whether TIRED enemy names and pacifying spells should flash white"
+  "descEn": "Whether TIRED enemy names and pacifying spells should flash white",
+  "opts": [
+   true,
+   false
+  ]
  },
  {
   "key": "recruitsProgressSpaces",
   "desc": "招募进度菜单中的数字之间是否显示空格",
   "name": "Recruits Progress Spaces",
-  "descEn": "Whether the recruits progress in the menu will have spaces between the amounts"
+  "descEn": "Whether the recruits progress in the menu will have spaces between the amounts",
+  "opts": [
+   true,
+   false
+  ]
  },
  {
   "key": "shopSpaceUIFont",
   "desc": "商店空间 UI 数字使用的字体",
   "name": "Shop Space UI Font",
-  "descEn": "The font used for the remaining space UI in shops"
+  "descEn": "The font used for the remaining space UI in shops",
+  "opts": [
+   "8bit",
+   "8bit_old"
+  ]
  },
  {
   "key": "soulInvBetweenWaves",
   "desc": "灵魂无敌状态是否在战斗波次之间延续",
   "name": "Keep Soul Invulnerability",
-  "descEn": "Whether the soul invulnerability will carry between waves in battles"
+  "descEn": "Whether the soul invulnerability will carry between waves in battles",
+  "opts": [
+   true,
+   false
+  ]
  },
  {
   "key": "storageSlots",
   "desc": "暗世界物品栏的额外仓库格数",
   "name": "Storage Slots",
-  "descEn": "The amount of storage slots in the dark world inventory"
+  "descEn": "The amount of storage slots in the dark world inventory",
+  "opts": [
+   0,
+   12,
+   24,
+   36
+  ]
  },
  {
   "key": "tiredMessages",
   "desc": "敌人疲劳时显示疲劳提示消息",
   "name": "Tired Messages",
-  "descEn": "Whether a TIRED message should appear when an enemy becomes TIRED"
+  "descEn": "Whether a TIRED message should appear when an enemy becomes TIRED",
+  "opts": [
+   true,
+   false
+  ]
  }
 ]
