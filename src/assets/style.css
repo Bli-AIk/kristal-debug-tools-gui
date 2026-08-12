@@ -337,8 +337,10 @@ input:focus, select:focus { outline: none; border-color: var(--yellow); }
 }
 
 .task-row {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  /* name | doc (stretches) | params | run — params and run sit close
+     together at the right so typing then clicking is a short move. */
+  grid-template-columns: auto 1fr auto auto;
   align-items: center;
   gap: 8px 12px;
   padding: 8px 6px;
@@ -346,13 +348,11 @@ input:focus, select:focus { outline: none; border-color: var(--yellow); }
 }
 .task-row:last-child { border-bottom: none; }
 .task-row:hover { background: rgba(255, 255, 255, 0.06); }
-/* Run buttons share one right-aligned column across all rows. */
-.task-row > .btn { margin-left: auto; }
 
 .task-name { font-family: var(--font-bold); font-size: 1.05rem; min-width: 120px; }
 .task-name .alias { color: var(--cyan); font-size: 0.8rem; }
-.task-doc { color: var(--muted); font-size: 0.85rem; flex: 1 1 100%; }
-.task-params { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; flex: 1 1 200px; }
+.task-doc { color: var(--muted); font-size: 0.85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.task-params { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .task-params label { display: flex; align-items: center; gap: 5px; font-size: 0.85rem; color: var(--dim); }
 .task-params input[type="text"], .task-params input:not([type]) { width: 110px; padding: 0.15em 0.4em; font-size: 0.85rem; }
 .task-params input[type="checkbox"] { accent-color: var(--yellow); width: 14px; height: 14px; }
