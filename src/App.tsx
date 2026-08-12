@@ -614,10 +614,13 @@ function ChapterConfigPage({ config, onBack, onPickChapter, onSaveAll }: {
                   <span className="cc-control">
                     {item.options.length <= 1 && typeof item.current.value === "string" ? (
                       // free-form string config (lightCurrency etc.)
-                      <input className={"cc-edit" + (hasEdit ? " pending" : "")} type="text"
-                        value={String(shownVal)}
-                        onChange={(e) => edit(item.key, e.target.value)}
-                        onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }} />
+                      <>
+                        {diff && !hasEdit && <span className="cc-preview" title={t("chapterConfig") + ` Ch.${selected}`}>{prev!.label}</span>}
+                        <input className={"cc-edit" + (hasEdit ? " pending" : "")} type="text"
+                          value={String(shownVal)}
+                          onChange={(e) => edit(item.key, e.target.value)}
+                          onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }} />
+                      </>
                     ) : item.options.length <= 1 ? (
                       <span className="cc-value applied">{shownLabel || "—"}</span>
                     ) : item.options.length === 2 ? (
@@ -634,6 +637,7 @@ function ChapterConfigPage({ config, onBack, onPickChapter, onSaveAll }: {
                       </span>
                     ) : (
                       <>
+                        {diff && !hasEdit && <span className="cc-preview" title={t("chapterConfig") + ` Ch.${selected}`}>{prev!.label}</span>}
                         <select className={"cc-select" + (hasEdit ? " pending" : "")} value={String(shownVal)}
                           onChange={(e) => {
                             const o = item.options.find((x) => String(x.value) === e.target.value);
@@ -643,7 +647,6 @@ function ChapterConfigPage({ config, onBack, onPickChapter, onSaveAll }: {
                             <option key={String(o.value)} value={String(o.value)}>{o.label}</option>
                           ))}
                         </select>
-                        {diff && !hasEdit && <span className="cc-preview" title={t("chapterConfig") + ` Ch.${selected}`}>{prev!.label}</span>}
                       </>
                     )}
                     {item.isOverride ? (
