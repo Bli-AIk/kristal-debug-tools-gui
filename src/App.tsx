@@ -557,10 +557,12 @@ function ChapterConfigPage({ config, onBack, onPickChapter, onSaveAll }: {
   const edit = (key: string, value: unknown) =>
     setEdits((e) => ({ ...e, [key]: value }));
 
-  // A custom config: some override differs from every chapter's defaults.
+  // A custom config: an override differs from the CURRENT chapter's
+  // preset (that's what the user is editing against). Saving such a
+  // change flips the ★ custom indicator automatically.
   const hasCustom = config.items.some((it) =>
     it.isOverride &&
-    ![1, 2, 3, 4].some((ch) => String(it.chValues?.[String(ch)]?.value) === String(it.current.value)));
+    String(it.current.value) !== String(it.chValues?.[String(config.chapter)]?.value));
 
   return (
     <main className="layout">
