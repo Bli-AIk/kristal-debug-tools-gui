@@ -43,6 +43,18 @@ fn just_runner(app: &tauri::AppHandle) -> Option<(PathBuf, tasks::JustSource)> {
     })
 }
 
+/// The launch mode remembered by gui.cmd / gui-download.sh in
+/// <mod-root>/.tools/gui/.mode ("compile" or "bin").
+fn gui_mode_file(state: &AppState) -> PathBuf {
+    state.mod_root.join(".tools").join("gui").join(".mode")
+}
+
+fn read_gui_mode(state: &AppState) -> bool {
+    std::fs::read_to_string(gui_mode_file(state))
+        .map(|s| s.trim() == "compile")
+        .unwrap_or(false)
+}
+
 #[tauri::command]
 pub fn status(app: tauri::AppHandle, state: State<AppState>) -> Value {
     let (engine_version, engine_hash) = config::engine_info(&state.engine_root);
@@ -67,7 +79,19 @@ pub fn status(app: tauri::AppHandle, state: State<AppState>) -> Value {
         "template": config::detect_template(&state.mod_root),
         "os": std::env::consts::OS,
         "arch": std::env::consts::ARCH,
+        "guiMode": read_gui_mode(&state),
     })
+}
+
+/// Write the launcher mode (compile only / release binaries) to
+/// .tools/gui/.mode — takes effect on the next `just gui` run.
+#[tauri::command]
+pub fn set_gui_mode(state: State<AppState>, compile: bool) -> Result<Value, String> {
+    let file = gui_mode_file(&state);
+    let dir = file.parent().ok_or("bad path")?;
+    std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+    std::fs::write(&file, if compile { "compile\n" } else { "bin\n" }).map_err(|e| e.to_string())?;
+    Ok(json!({ "ok": true, "mode": if compile { "compile" } else { "bin" } }))
 }
 
 #[tauri::command]

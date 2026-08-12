@@ -23,6 +23,7 @@ const I18N: Record<string, Record<string, string>> = {
     overrideSaved: "已保存", overrideReset: "重置", back: "返回", chapterSaved: "默认章节已保存",
     run: "运行", refresh: "刷新",
     settings: "设置", language: "语言", keepOpen: "任务运行完保持窗口打开",
+    compileOnly: "仅本地编译模式（下次启动生效）",
   },
   en: {
     tasks: "RUN LIST (ADVANCED)", launch: "LAUNCH GAME", runs: "RUNS",
@@ -42,6 +43,7 @@ const I18N: Record<string, Record<string, string>> = {
     overrideSaved: "saved", overrideReset: "reset", back: "BACK", chapterSaved: "default chapter saved",
     run: "RUN", refresh: "REFRESH",
     settings: "SETTINGS", language: "LANGUAGE", keepOpen: "keep the task window open after it finishes",
+    compileOnly: "compile from source only (next launch)",
   },
 };
 
@@ -60,6 +62,7 @@ interface Status {
   libraries?: { id: string; version?: string }[];
   template?: { isTemplate: boolean; name?: string; chapter?: number } | null;
   os: string; arch: string;
+  guiMode?: boolean;
 }
 interface TaskItem {
   name: string; doc?: string; private?: boolean;
@@ -176,6 +179,14 @@ export default function App() {
                       onChange={(e) => {
                         setKeepOpen(e.target.checked);
                         localStorage.setItem("kdt-keepopen", e.target.checked ? "1" : "0");
+                      }} />
+                  </label>
+                  <label className="set-row check">
+                    <span>{t("compileOnly")}</span>
+                    <input type="checkbox" checked={status?.guiMode ?? false}
+                      onChange={(e) => {
+                        invoke("set_gui_mode", { compile: e.target.checked })
+                          .catch((err) => showFlash(String(err), true));
                       }} />
                   </label>
                 </div>
