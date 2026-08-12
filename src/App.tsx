@@ -103,7 +103,7 @@ export default function App() {
 
   const loadAll = useCallback(() => {
     invoke<Status>("status").then(setStatus).catch((e) => showFlash(String(e), true));
-    invoke<TasksResult>("tasks").then(setTasks).catch(() => setTasks(null));
+    invoke<TasksResult>("tasks", { lang: lang === "zh" ? "zh_hans" : "en" }).then(setTasks).catch(() => setTasks(null));
     invoke<ChapterConfig>("chapter_config").then(setChapterConfig).catch(() => setChapterConfig(null));
   }, [showFlash]);
 

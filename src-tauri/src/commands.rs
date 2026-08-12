@@ -71,9 +71,10 @@ pub fn status(app: tauri::AppHandle, state: State<AppState>) -> Value {
 }
 
 #[tauri::command]
-pub fn tasks(app: tauri::AppHandle, state: State<AppState>) -> Value {
+pub fn tasks(app: tauri::AppHandle, state: State<AppState>, lang: Option<String>) -> Value {
+    let lang = lang.as_deref().unwrap_or("default");
     match just_runner(&app) {
-        Some((jp, source)) => tasks::list(source, &jp, &state.justfile, &state.mod_root),
+        Some((jp, source)) => tasks::list(source, &jp, &state.justfile, &state.mod_root, lang),
         None => json!({ "source": "builtin", "tasks": [], "mod": null }),
     }
 }
