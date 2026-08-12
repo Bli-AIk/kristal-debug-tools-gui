@@ -558,9 +558,12 @@ function ChapterConfigPage({ config, onBack, onPickChapter, onSet }: {
           </div>
           <div className="chapter-config-list wide">
             {config.items.map((item) => {
-              // The current (green) value stays highlighted; previewing
-              // another chapter adds a yellow Ch.N preview tag next to it.
+              // Green = the current value, yellow = the previewed chapter's
+              // value — both highlights live on the option buttons.
               const prev = pending ? item.chValues?.[String(selected)] : null;
+              const isPrev = (o: { value: unknown }) =>
+                !!prev && String(o.value) === String(prev.value) &&
+                String(o.value) !== String(item.current.value);
               return (
                 <div className="cc-row" key={item.key}>
                   <span className="cc-name" title={item.key}>
@@ -576,14 +579,16 @@ function ChapterConfigPage({ config, onBack, onPickChapter, onSet }: {
                       <span className="cc-pair">
                         {item.options.map((o) => (
                           <button key={o.label}
-                            className={"btn small" + (String(o.value) === String(item.current.value) ? " applied" : "")}
+                            className={"btn small"
+                              + (String(o.value) === String(item.current.value) ? " applied" : "")
+                              + (isPrev(o) ? " pending" : "")}
                             onClick={() => { if (String(o.value) !== String(item.current.value)) onSet(item.key, o.value); }}>
                             {o.label}
                           </button>
                         ))}
                       </span>
                     ) : (
-                      <select className="cc-select" value={String(item.current.value)}
+                      <select className={"cc-select" + (pending ? " pending" : "")} value={String(item.current.value)}
                         onChange={(e) => {
                           const o = item.options.find((x) => String(x.value) === e.target.value);
                           if (o) onSet(item.key, o.value);
@@ -592,9 +597,6 @@ function ChapterConfigPage({ config, onBack, onPickChapter, onSet }: {
                           <option key={String(o.value)} value={String(o.value)}>{o.label}</option>
                         ))}
                       </select>
-                    )}
-                    {prev && (
-                      <span className="cc-preview">Ch.{selected}: {prev.label || "—"}</span>
                     )}
                     {item.isOverride ? (
                       <span className="cc-saved">
