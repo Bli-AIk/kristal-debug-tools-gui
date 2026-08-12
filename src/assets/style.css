@@ -139,6 +139,25 @@ a:hover { color: var(--cyan-bright); text-decoration: underline; }
 .scale-group { display: flex; align-items: center; gap: 8px; }
 .scale-label { font-size: 0.85rem; color: var(--muted); min-width: 42px; text-align: center; }
 
+/* Settings dropdown (language + task window behavior). */
+.settings { position: relative; }
+.settings-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  min-width: 260px;
+  background: rgba(0, 0, 0, 0.92);
+  border: 2px solid var(--text);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 20;
+}
+.settings-menu .set-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 0.9rem; }
+.settings-menu select { background: #000; color: var(--text); border: 2px solid var(--text); padding: 0.2em 0.5em; font-family: inherit; }
+.settings-menu input[type="checkbox"] { accent-color: var(--yellow); width: 16px; height: 16px; }
+
 /* --- status bar --- */
 
 .statusbar {

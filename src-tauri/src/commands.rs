@@ -86,6 +86,8 @@ pub struct RunTaskArgs {
     pub args: Vec<String>,
     #[serde(default)]
     pub justfile: String, // "" | "library" | "project"
+    #[serde(default)]
+    pub pause: bool, // keep the terminal open after the task finishes
 }
 
 #[tauri::command]
@@ -111,7 +113,7 @@ pub fn run_task(app: tauri::AppHandle, state: State<AppState>, req: RunTaskArgs)
         req.task,
     ];
     argv.extend(req.args);
-    term::spawn_in_terminal(&argv, &state.mod_root, true)?;
+    term::spawn_in_terminal(&argv, &state.mod_root, req.pause)?;
     Ok(json!({ "ok": true }))
 }
 

@@ -22,6 +22,7 @@ const I18N: Record<string, Record<string, string>> = {
     taskFail: "启动失败", apply: "应用", overrideDefault: "默认", overrideOn: "开", overrideOff: "关",
     overrideSaved: "已保存", overrideReset: "重置", back: "返回", chapterSaved: "默认章节已保存",
     run: "运行", refresh: "刷新",
+    settings: "设置", language: "语言", keepOpen: "任务运行完保持窗口打开",
   },
   en: {
     tasks: "RUN LIST (ADVANCED)", launch: "LAUNCH GAME", runs: "RUNS",
@@ -40,6 +41,7 @@ const I18N: Record<string, Record<string, string>> = {
     taskFail: "start failed", apply: "APPLY", overrideDefault: "default", overrideOn: "on", overrideOff: "off",
     overrideSaved: "saved", overrideReset: "reset", back: "BACK", chapterSaved: "default chapter saved",
     run: "RUN", refresh: "REFRESH",
+    settings: "SETTINGS", language: "LANGUAGE", keepOpen: "keep the task window open after it finishes",
   },
 };
 
@@ -135,6 +137,10 @@ export default function App() {
   const addRun = (label: string, command: string) =>
     setRuns((rs) => [{ id: rs.length + 1, label, command }, ...rs].slice(0, 50));
 
+  // Settings: language + "keep the task terminal open after it finishes".
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [keepOpen, setKeepOpen] = useState(localStorage.getItem("kdt-keepopen") === "1");
+
   const overrideCount =
     chapterConfig?.items.filter((i) => i.override !== null && i.override !== undefined).length ?? 0;
 
@@ -149,13 +155,32 @@ export default function App() {
               <span className="scale-label">{scaleLabel}</span>
               <button className="btn small" title="A+" onClick={() => setScale(0.15)}>A+</button>
             </span>
-            <button className="btn" onClick={() => {
-              lang = lang === "zh" ? "en" : "zh";
-              localStorage.setItem("kdt-lang", lang);
-              refresh();
-            }}>
-              {lang === "zh" ? "EN" : "中文"}
-            </button>
+            <div className="settings">
+              <button className="btn" onClick={() => setMenuOpen(!menuOpen)}>⚙ {t("settings")}</button>
+              {menuOpen && (
+                <div className="settings-menu">
+                  <label className="set-row">
+                    <span>{t("language")}</span>
+                    <select value={lang} onChange={(e) => {
+                      lang = e.target.value;
+                      localStorage.setItem("kdt-lang", lang);
+                      refresh();
+                    }}>
+                      <option value="zh">中文</option>
+                      <option value="en">English</option>
+                    </select>
+                  </label>
+                  <label className="set-row check">
+                    <span>{t("keepOpen")}</span>
+                    <input type="checkbox" checked={keepOpen}
+                      onChange={(e) => {
+                        setKeepOpen(e.target.checked);
+                        localStorage.setItem("kdt-keepopen", e.target.checked ? "1" : "0");
+                      }} />
+                  </label>
+                </div>
+              )}
+            </div>
           </span>
         </div>
       </header>
@@ -200,7 +225,7 @@ export default function App() {
           <div className="cell c3">
             <TaskList tasks={tasks} onRun={async (task, args, justfile) => {
               try {
-                await invoke("run_task", { req: { task, args, justfile } });
+                await invoke("run_task", { req: { task, args, justfile, pause: keepOpen } });
                 showFlash(t("taskStarted"));
                 addRun(task, `just ${task} ${args.join(" ")}`);
               } catch (e) { showFlash(t("taskFail") + ": " + e, true); }
