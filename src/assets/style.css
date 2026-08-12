@@ -482,23 +482,6 @@ input:focus, select:focus { outline: none; border-color: var(--yellow); }
 .cc-pair { display: flex; gap: 6px; }
 .cc-value { color: var(--dim); }
 .cc-select.pending { border-color: var(--yellow); }
-/* Preview diff: the control stays green-bordered, its text dims to dark
-   green; the previewed value is plain yellow text next to it. */
-.cc-control:has(.cc-preview) .cc-select,
-.cc-control:has(.cc-preview) .cc-edit {
-  color: #2f7d32;
-  border-color: #2f7d32;
-}
-/* Preview value: same control look as the select/input, just yellow. */
-.cc-preview {
-  background: #000;
-  color: var(--yellow);
-  border: 2px solid var(--yellow);
-  padding: 0.2em 0.5em;
-  font-size: 0.85rem;
-  font-family: inherit;
-  white-space: nowrap;
-}
 .cc-edit {
   background: #000;
   color: var(--text);

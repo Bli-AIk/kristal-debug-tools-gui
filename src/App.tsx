@@ -258,13 +258,6 @@ export default function App() {
         <ChapterConfigPage
           config={chapterConfig}
           onBack={() => setView("main")}
-          onPickChapter={async (n) => {
-            try {
-              await invoke("template_chapter", { chapter: n });
-              showFlash(t("chapterSaved") + " — Chapter " + n);
-              loadAll();
-            } catch (e) { showFlash(String(e), true); }
-          }}
           onSaveAll={async (edits) => {
             try {
               for (const [key, value] of Object.entries(edits)) {
@@ -536,34 +529,42 @@ function RunsLog({ runs }: { runs: RunEntry[] }) {
 
 /* ---------- chapter config page ---------- */
 
-function ChapterConfigPage({ config, onBack, onPickChapter, onSaveAll }: {
+function ChapterConfigPage({ config, onBack, onSaveAll }: {
   config: ChapterConfig | null;
   onBack: () => void;
-  onPickChapter: (n: number) => void;
   onSaveAll: (edits: Record<string, unknown>) => void;
 }) {
-  const [selected, setSelected] = useState(0);
   // unsaved per-property edits: clicking an option only stages them; the
   // top SAVE button writes them all at once (one "saved" flash)
   const [edits, setEdits] = useState<Record<string, unknown>>({});
-  useEffect(() => { if (config) setSelected(config.chapter); }, [config]);
   useEffect(() => { setEdits({}); }, [config]);
 
   if (!config) {
     return <main className="layout"><div className="cell c1r1"><div className="broken-box panel"><p className="hint">…</p></div></div></main>;
   }
 
-  const pending = selected !== config.chapter && selected !== 0;
   const hasEdits = Object.keys(edits).length > 0;
   const edit = (key: string, value: unknown) =>
     setEdits((e) => ({ ...e, [key]: value }));
 
-  // A custom config: an override differs from the CURRENT chapter's
-  // preset (that's what the user is editing against). Saving such a
-  // change flips the ★ custom indicator automatically.
-  const hasCustom = config.items.some((it) =>
-    it.isOverride &&
-    String(it.current.value) !== String(it.chValues?.[String(config.chapter)]?.value));
+  // The chapter indicator is DERIVED from the current content (staged
+  // edits + applied overrides): Ch.N when it equals that preset exactly,
+  // otherwise ★ custom. Pressing Ch.N loads that preset into the staged
+  // edits (saving overwrites); editing below just modifies the content.
+  const eff = (it: ChapterItem) =>
+    edits[it.key] !== undefined ? edits[it.key] : it.current.value;
+  const matchingCh = [1, 2, 3, 4].find((ch) =>
+    config.items.every((it) =>
+      !it.chValues || String(eff(it)) === String(it.chValues[String(ch)]?.value)));
+  const activeCh = matchingCh ?? 0; // 0 = ★ custom
+
+  const applyPreset = (n: number) => {
+    const next: Record<string, unknown> = {};
+    for (const it of config.items) {
+      if (it.chValues?.[String(n)]) next[it.key] = it.chValues[String(n)].value;
+    }
+    setEdits(next);
+  };
 
   return (
     <main className="layout">
@@ -573,19 +574,13 @@ function ChapterConfigPage({ config, onBack, onPickChapter, onSaveAll }: {
             <span className="chapter-buttons">
               {[1, 2, 3, 4].map((n) => (
                 <button key={n}
-                  className={"btn small" + (n === config.chapter && !hasCustom ? " applied" : "") + (n === selected && pending ? " pending" : "")}
-                  onClick={() => setSelected(n)}>Ch.{n}</button>
+                  className={"btn small" + (activeCh === n ? " applied" : "")}
+                  onClick={() => applyPreset(n)}>Ch.{n}</button>
               ))}
-              <button className={"btn small" + (hasCustom ? " applied" : "")}
-                disabled={!hasCustom} title={t("customConfig")}>★ {t("customConfig")}</button>
-              {/* One save: staged property edits + the chapter pick, together. */}
-              <button className="btn small danger" disabled={!hasEdits && !pending}
-                onClick={() => {
-                  if (hasEdits) onSaveAll(edits);
-                  if (pending) onPickChapter(selected);
-                  setEdits({});
-                  setSelected(config.chapter);
-                }}>
+              <button className={"btn small" + (activeCh === 0 ? " applied" : "")}
+                disabled={activeCh !== 0} title={t("customConfig")}>★ {t("customConfig")}</button>
+              <button className="btn small danger" disabled={!hasEdits}
+                onClick={() => { onSaveAll(edits); setEdits({}); }}>
                 {t("save")}
               </button>
             </span>
@@ -593,23 +588,14 @@ function ChapterConfigPage({ config, onBack, onPickChapter, onSaveAll }: {
           </div>
           <div className="chapter-config-list wide">
             {config.items.filter((i) => i.standard !== false).map((item) => {
-              // Staged edits (yellow) preview before saving; the green
-              // current value stays highlighted. Chapter preview also
-              // shows in yellow until the property is edited.
+              // Staged edits show yellow (pending save); the green
+              // current value stays highlighted.
               const editVal = edits[item.key];
               const hasEdit = editVal !== undefined;
-              const prev = (!hasEdit && pending) ? item.chValues?.[String(selected)] : null;
-              // for selects / text inputs: the control keeps the current
-              // value (dim green), and a yellow tag next to it shows the
-              // previewed chapter's value — only when it differs
-              const diff = !!prev && String(prev.value) !== String(item.current.value);
               const shownVal = hasEdit ? editVal : item.current.value;
               const shownLabel = hasEdit
                 ? (item.options.find((o) => String(o.value) === String(editVal))?.label ?? String(editVal))
                 : item.current.label;
-              const isPrev = (o: { value: unknown }) =>
-                !!prev && String(o.value) === String(prev.value) &&
-                String(o.value) !== String(item.current.value);
               const isEdit = (o: { value: unknown }) =>
                 hasEdit && String(o.value) === String(editVal) &&
                 String(o.value) !== String(item.current.value);
@@ -625,7 +611,6 @@ function ChapterConfigPage({ config, onBack, onPickChapter, onSaveAll }: {
                     {item.options.length <= 1 && typeof item.current.value === "string" ? (
                       // free-form string config (lightCurrency etc.)
                       <>
-                        {diff && !hasEdit && <span className="cc-preview" title={t("chapterConfig") + ` Ch.${selected}`}>{prev!.label}</span>}
                         <input className={"cc-edit" + (hasEdit ? " pending" : "")} type="text"
                           value={String(shownVal)}
                           onChange={(e) => edit(item.key, e.target.value)}
@@ -639,7 +624,7 @@ function ChapterConfigPage({ config, onBack, onPickChapter, onSaveAll }: {
                           <button key={o.label}
                             className={"btn small"
                               + (String(o.value) === String(item.current.value) ? " applied" : "")
-                              + (isEdit(o) || isPrev(o) ? " pending" : "")}
+                              + (isEdit(o) ? " pending" : "")}
                             onClick={() => { if (String(o.value) !== String(shownVal)) edit(item.key, o.value); }}>
                             {o.label}
                           </button>
@@ -647,7 +632,6 @@ function ChapterConfigPage({ config, onBack, onPickChapter, onSaveAll }: {
                       </span>
                     ) : (
                       <>
-                        {diff && !hasEdit && <span className="cc-preview" title={t("chapterConfig") + ` Ch.${selected}`}>{prev!.label}</span>}
                         <select className={"cc-select" + (hasEdit ? " pending" : "")} value={String(shownVal)}
                           onChange={(e) => {
                             const o = item.options.find((x) => String(x.value) === e.target.value);
