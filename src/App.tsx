@@ -560,13 +560,15 @@ function ChapterConfigPage({ config, onBack, onPickChapter, onSaveAll }: {
               ))}
               <button className={"btn small" + (hasCustom ? " applied" : "")}
                 disabled={!hasCustom} title={t("customConfig")}>★ {t("customConfig")}</button>
-              <button className="btn small" disabled={!hasEdits}
-                onClick={() => { onSaveAll(edits); setEdits({}); }}>
+              {/* One save: staged property edits + the chapter pick, together. */}
+              <button className="btn small danger" disabled={!hasEdits && !pending}
+                onClick={() => {
+                  if (hasEdits) onSaveAll(edits);
+                  if (pending) onPickChapter(selected);
+                  setEdits({});
+                  setSelected(config.chapter);
+                }}>
                 {t("save")}
-              </button>
-              <button className="btn small danger" disabled={!pending}
-                onClick={() => { onPickChapter(selected); setSelected(config.chapter); }}>
-                {t("apply")}
               </button>
             </span>
             <button className="btn small" onClick={onBack}>← {t("back")}</button>
