@@ -224,14 +224,24 @@ pub fn chapter_config(state: State<AppState>) -> Value {
             let frow = features.get(&k);
             let mut options: Vec<(String, Value)> = Vec::new();
             for ch in 1..=4 {
-                let raw = defaults.get(ch - 1).and_then(|m| m.get(&k));
+                let raw = defaults.get(ch - 1).and_then(|m| m.get(&k)).cloned();
                 let label = features
                     .get(&k)
                     .and_then(|f| f.get(&ch.to_string()))
                     .and_then(|v| v.as_str());
-                if let (Some(raw), Some(label)) = (raw, label) {
-                    if !options.iter().any(|(l, _)| l.as_str() == label) {
-                        options.push((label.to_string(), raw.clone()));
+                if let Some(label) = label {
+                    // a raw value may be missing from the chapter files —
+                    // infer it from the semantic label where possible
+                    let raw = raw.or_else(|| match label {
+                        "是" => Some(Value::Bool(true)),
+                        "否" => Some(Value::Bool(false)),
+                        "未设置" => Some(Value::Null),
+                        _ => None,
+                    });
+                    if let Some(raw) = raw {
+                        if !options.iter().any(|(l, _)| l.as_str() == label) {
+                            options.push((label.to_string(), raw));
+                        }
                     }
                 }
             }
