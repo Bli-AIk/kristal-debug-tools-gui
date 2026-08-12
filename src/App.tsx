@@ -589,10 +589,12 @@ function ChapterConfigPage({ config, onBack, onPickChapter, onSaveAll }: {
               const editVal = edits[item.key];
               const hasEdit = editVal !== undefined;
               const prev = (!hasEdit && pending) ? item.chValues?.[String(selected)] : null;
-              const shownVal = hasEdit ? editVal : item.current.value;
+              // selects/text inputs show the previewed chapter's value too
+              const shownVal = hasEdit ? editVal
+                : (prev ? prev.value : item.current.value);
               const shownLabel = hasEdit
                 ? (item.options.find((o) => String(o.value) === String(editVal))?.label ?? String(editVal))
-                : item.current.label;
+                : (prev ? prev.label : item.current.label);
               const isPrev = (o: { value: unknown }) =>
                 !!prev && String(o.value) === String(prev.value) &&
                 String(o.value) !== String(item.current.value);
