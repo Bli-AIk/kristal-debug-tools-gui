@@ -589,12 +589,14 @@ function ChapterConfigPage({ config, onBack, onPickChapter, onSaveAll }: {
               const editVal = edits[item.key];
               const hasEdit = editVal !== undefined;
               const prev = (!hasEdit && pending) ? item.chValues?.[String(selected)] : null;
-              // selects/text inputs show the previewed chapter's value too
-              const shownVal = hasEdit ? editVal
-                : (prev ? prev.value : item.current.value);
+              // for selects / text inputs: the control keeps the current
+              // value (dim green), and a yellow tag next to it shows the
+              // previewed chapter's value — only when it differs
+              const diff = !!prev && String(prev.value) !== String(item.current.value);
+              const shownVal = hasEdit ? editVal : item.current.value;
               const shownLabel = hasEdit
                 ? (item.options.find((o) => String(o.value) === String(editVal))?.label ?? String(editVal))
-                : (prev ? prev.label : item.current.label);
+                : item.current.label;
               const isPrev = (o: { value: unknown }) =>
                 !!prev && String(o.value) === String(prev.value) &&
                 String(o.value) !== String(item.current.value);
@@ -631,15 +633,18 @@ function ChapterConfigPage({ config, onBack, onPickChapter, onSaveAll }: {
                         ))}
                       </span>
                     ) : (
-                      <select className={"cc-select" + (hasEdit || pending ? " pending" : "")} value={String(shownVal)}
-                        onChange={(e) => {
-                          const o = item.options.find((x) => String(x.value) === e.target.value);
-                          if (o) edit(item.key, o.value);
-                        }}>
-                        {item.options.map((o) => (
-                          <option key={String(o.value)} value={String(o.value)}>{o.label}</option>
-                        ))}
-                      </select>
+                      <>
+                        <select className={"cc-select" + (hasEdit ? " pending" : "")} value={String(shownVal)}
+                          onChange={(e) => {
+                            const o = item.options.find((x) => String(x.value) === e.target.value);
+                            if (o) edit(item.key, o.value);
+                          }}>
+                          {item.options.map((o) => (
+                            <option key={String(o.value)} value={String(o.value)}>{o.label}</option>
+                          ))}
+                        </select>
+                        {diff && !hasEdit && <span className="cc-preview" title={t("chapterConfig") + ` Ch.${selected}`}>{prev!.label}</span>}
+                      </>
                     )}
                     {item.isOverride ? (
                       <span className="cc-saved">
