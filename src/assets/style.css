@@ -491,6 +491,7 @@ input:focus, select:focus { outline: none; border-color: var(--yellow); }
   font-size: 0.85rem;
   min-width: 120px;
 }
+.cc-edit.pending { border-color: var(--yellow); }
 .cc-edit:focus { border-color: var(--yellow); outline: none; }
 .cc-select {
   background: #000;

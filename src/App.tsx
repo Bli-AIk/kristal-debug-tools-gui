@@ -21,6 +21,7 @@ const I18N: Record<string, Record<string, string>> = {
     launchOk: "游戏已在新终端窗口中启动", taskStarted: "任务已在新终端窗口中启动",
     taskFail: "启动失败", apply: "应用", overrideDefault: "默认", overrideOn: "开", overrideOff: "关",
     overrideSaved: "已保存", overrideReset: "重置", back: "返回", chapterSaved: "默认章节已保存",
+    save: "保存",
     run: "运行", refresh: "刷新",
     settings: "设置", language: "语言", keepOpen: "任务运行完保持窗口打开",
     compileOnly: "仅本地编译模式（下次启动生效）",
@@ -41,6 +42,7 @@ const I18N: Record<string, Record<string, string>> = {
     launchOk: "game launched in a new terminal window", taskStarted: "task started in a new terminal window",
     taskFail: "start failed", apply: "APPLY", overrideDefault: "default", overrideOn: "on", overrideOff: "off",
     overrideSaved: "saved", overrideReset: "reset", back: "BACK", chapterSaved: "default chapter saved",
+    save: "SAVE",
     run: "RUN", refresh: "REFRESH",
     settings: "SETTINGS", language: "LANGUAGE", keepOpen: "keep the task window open after it finishes",
     compileOnly: "compile from source only (next launch)",
@@ -252,10 +254,12 @@ export default function App() {
               loadAll();
             } catch (e) { showFlash(String(e), true); }
           }}
-          onSet={async (key, value) => {
+          onSaveAll={async (edits) => {
             try {
-              await invoke("chapter_config_set", { req: { key, value } });
-              showFlash(t("overrideSaved") + ": " + key);
+              for (const [key, value] of Object.entries(edits)) {
+                await invoke("chapter_config_set", { req: { key, value } });
+              }
+              showFlash(t("overrideSaved"));
               loadAll();
             } catch (e) { showFlash(String(e), true); }
           }}
@@ -516,20 +520,27 @@ function RunsLog({ runs }: { runs: RunEntry[] }) {
 
 /* ---------- chapter config page ---------- */
 
-function ChapterConfigPage({ config, onBack, onPickChapter, onSet }: {
+function ChapterConfigPage({ config, onBack, onPickChapter, onSaveAll }: {
   config: ChapterConfig | null;
   onBack: () => void;
   onPickChapter: (n: number) => void;
-  onSet: (key: string, value: unknown) => void;
+  onSaveAll: (edits: Record<string, unknown>) => void;
 }) {
   const [selected, setSelected] = useState(0);
+  // unsaved per-property edits: clicking an option only stages them; the
+  // top SAVE button writes them all at once (one "saved" flash)
+  const [edits, setEdits] = useState<Record<string, unknown>>({});
   useEffect(() => { if (config) setSelected(config.chapter); }, [config]);
+  useEffect(() => { setEdits({}); }, [config]);
 
   if (!config) {
     return <main className="layout"><div className="cell c1r1"><div className="broken-box panel"><p className="hint">…</p></div></div></main>;
   }
 
   const pending = selected !== config.chapter && selected !== 0;
+  const hasEdits = Object.keys(edits).length > 0;
+  const edit = (key: string, value: unknown) =>
+    setEdits((e) => ({ ...e, [key]: value }));
 
   // A custom config: some override differs from every chapter's defaults.
   const hasCustom = config.items.some((it) =>
@@ -549,6 +560,10 @@ function ChapterConfigPage({ config, onBack, onPickChapter, onSet }: {
               ))}
               <button className={"btn small" + (hasCustom ? " applied" : "")}
                 disabled={!hasCustom} title={t("customConfig")}>★ {t("customConfig")}</button>
+              <button className="btn small" disabled={!hasEdits}
+                onClick={() => { onSaveAll(edits); setEdits({}); }}>
+                {t("save")}
+              </button>
               <button className="btn small danger" disabled={!pending}
                 onClick={() => { onPickChapter(selected); setSelected(config.chapter); }}>
                 {t("apply")}
@@ -558,11 +573,21 @@ function ChapterConfigPage({ config, onBack, onPickChapter, onSet }: {
           </div>
           <div className="chapter-config-list wide">
             {config.items.map((item) => {
-              // Green = the current value, yellow = the previewed chapter's
-              // value — both highlights live on the option buttons.
-              const prev = pending ? item.chValues?.[String(selected)] : null;
+              // Staged edits (yellow) preview before saving; the green
+              // current value stays highlighted. Chapter preview also
+              // shows in yellow until the property is edited.
+              const editVal = edits[item.key];
+              const hasEdit = editVal !== undefined;
+              const prev = (!hasEdit && pending) ? item.chValues?.[String(selected)] : null;
+              const shownVal = hasEdit ? editVal : item.current.value;
+              const shownLabel = hasEdit
+                ? (item.options.find((o) => String(o.value) === String(editVal))?.label ?? String(editVal))
+                : item.current.label;
               const isPrev = (o: { value: unknown }) =>
                 !!prev && String(o.value) === String(prev.value) &&
+                String(o.value) !== String(item.current.value);
+              const isEdit = (o: { value: unknown }) =>
+                hasEdit && String(o.value) === String(editVal) &&
                 String(o.value) !== String(item.current.value);
               return (
                 <div className="cc-row" key={item.key}>
@@ -574,34 +599,30 @@ function ChapterConfigPage({ config, onBack, onPickChapter, onSet }: {
                   </span>
                   <span className="cc-control">
                     {item.options.length <= 1 && typeof item.current.value === "string" ? (
-                      // free-form string config (lightCurrency etc.): an
-                      // editable field, Enter/blur writes the override
-                      <input className="cc-edit" type="text"
-                        defaultValue={String(item.current.value)}
-                        onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
-                        onBlur={(e) => {
-                          const v = e.target.value.trim();
-                          if (v && v !== String(item.current.value)) onSet(item.key, v);
-                        }} />
+                      // free-form string config (lightCurrency etc.)
+                      <input className={"cc-edit" + (hasEdit ? " pending" : "")} type="text"
+                        value={String(shownVal)}
+                        onChange={(e) => edit(item.key, e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }} />
                     ) : item.options.length <= 1 ? (
-                      <span className="cc-value applied">{item.current.label || "—"}</span>
+                      <span className="cc-value applied">{shownLabel || "—"}</span>
                     ) : item.options.length === 2 ? (
                       <span className="cc-pair">
                         {item.options.map((o) => (
                           <button key={o.label}
                             className={"btn small"
                               + (String(o.value) === String(item.current.value) ? " applied" : "")
-                              + (isPrev(o) ? " pending" : "")}
-                            onClick={() => { if (String(o.value) !== String(item.current.value)) onSet(item.key, o.value); }}>
+                              + (isEdit(o) || isPrev(o) ? " pending" : "")}
+                            onClick={() => { if (String(o.value) !== String(shownVal)) edit(item.key, o.value); }}>
                             {o.label}
                           </button>
                         ))}
                       </span>
                     ) : (
-                      <select className={"cc-select" + (pending ? " pending" : "")} value={String(item.current.value)}
+                      <select className={"cc-select" + (hasEdit || pending ? " pending" : "")} value={String(shownVal)}
                         onChange={(e) => {
                           const o = item.options.find((x) => String(x.value) === e.target.value);
-                          if (o) onSet(item.key, o.value);
+                          if (o) edit(item.key, o.value);
                         }}>
                         {item.options.map((o) => (
                           <option key={String(o.value)} value={String(o.value)}>{o.label}</option>
@@ -611,7 +632,7 @@ function ChapterConfigPage({ config, onBack, onPickChapter, onSet }: {
                     {item.isOverride ? (
                       <span className="cc-saved">
                         <span className="ok">{t("overrideSaved")}</span>
-                        <button className="btn small" onClick={() => onSet(item.key, null)}>{t("overrideReset")}</button>
+                        <button className="btn small" onClick={() => edit(item.key, null)}>{t("overrideReset")}</button>
                       </span>
                     ) : null}
                   </span>
