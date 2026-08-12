@@ -23,7 +23,10 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": [
+      "deb",
+      "nsis"
+    ],
     "externalBin": [
       "binaries/kristal-run"
     ],

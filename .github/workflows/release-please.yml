@@ -76,6 +76,27 @@ jobs:
           npm ci
           npm run build
 
+      # Raw binaries for the no-toolchain launcher (gui.cmd / just gui):
+      # gui exe + kristal-run sidecar, renamed per platform, plus SHA256
+      # checksums so the download scripts can verify them.
+      - name: Stage raw binaries + checksums (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          mkdir dist/upload
+          Copy-Item target/release/kristal-debug-tools-gui.exe dist/upload/kristal-debug-tools-gui-windows-x64.exe
+          Copy-Item target/release/kristal-run.exe dist/upload/kristal-run-windows-x64.exe
+          Get-FileHash dist/upload/* -Algorithm SHA256 |
+            ForEach-Object { "$($_.Hash.ToLower())  $([System.IO.Path]::GetFileName($_.Path))" } |
+            Out-File -Encoding ascii dist/upload/checksums.txt
+
+      - name: Stage raw binaries + checksums (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          mkdir -p dist/upload
+          cp target/release/kristal-debug-tools-gui dist/upload/kristal-debug-tools-gui-linux-x64
+          cp target/release/kristal-run dist/upload/kristal-run-linux-x64
+          (cd dist/upload && sha256sum * > checksums.txt)
+
       - name: Build Tauri bundles and attach to release
         uses: tauri-apps/tauri-action@v0
         env:
@@ -85,3 +106,4 @@ jobs:
           releaseName: ${{ needs.release-please.outputs.tag_name }}
           releaseDraft: false
           prerelease: false
+          files: dist/upload/*
