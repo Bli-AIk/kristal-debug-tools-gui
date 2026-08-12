@@ -268,7 +268,8 @@ export default function App() {
           onSaveAll={async (edits) => {
             try {
               for (const [key, value] of Object.entries(edits)) {
-                await invoke("chapter_config_set", { req: { key, value } });
+                // an emptied field removes the override (encounter: 空为无)
+                await invoke("chapter_config_set", { req: { key, value: value === "" ? null : value } });
               }
               showFlash(t("overrideSaved"));
               loadAll();
@@ -658,12 +659,6 @@ function ChapterConfigPage({ config, onBack, onPickChapter, onSaveAll }: {
                         </select>
                       </>
                     )}
-                    {item.isOverride ? (
-                      <span className="cc-saved">
-                        <span className="ok">{t("overrideSaved")}</span>
-                        <button className="btn small" onClick={() => edit(item.key, null)}>{t("overrideReset")}</button>
-                      </span>
-                    ) : null}
                   </span>
                 </div>
               );
@@ -701,9 +696,6 @@ function ChapterConfigPage({ config, onBack, onPickChapter, onSaveAll }: {
                           value={String(shownVal)}
                           onChange={(e) => edit(item.key, e.target.value)}
                           onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }} />
-                        {hasEdit && !shownVal && (
-                          <button className="btn small" onClick={() => edit(item.key, null)}>{t("overrideReset")}</button>
-                        )}
                       </>
                     ) : (
                       <span className="cc-value applied">{item.current.label || "—"}</span>
