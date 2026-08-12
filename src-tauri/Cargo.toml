@@ -4,6 +4,8 @@ version = "0.1.0"
 description = "Deltarune-style GUI for kristal-debug-tools"
 authors = ["Bli_Aik"]
 edition = "2021"
+# tauri dev runs `cargo run`; with two bins it needs to know which one.
+default-run = "kristal-debug-tools-gui"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
