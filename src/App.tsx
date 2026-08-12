@@ -168,7 +168,7 @@ export default function App() {
           <section className="col">
             <LaunchPanel status={status} onLaunch={async (opts) => {
               try {
-                await invoke("launch_game", opts);
+                await invoke("launch_game", { req: opts });
                 addRun("launch game", `love ${status?.engineRoot ?? ""} --mod ${status?.modID ?? ""}`);
                 showFlash(t("launchOk"));
               } catch (e) { showFlash(t("taskFail") + ": " + e, true); }
@@ -177,7 +177,7 @@ export default function App() {
             {status?.template?.isTemplate && (
               <InitPanel onInit={async (name) => {
                 try {
-                  await invoke("template_init", { name });
+                  await invoke("template_init", { req: { name } });
                   showFlash(t("initDone"));
                   addRun("initialize project", `bash start.sh --name ${name}`);
                 } catch (e) { showFlash(t("initFail") + ": " + e, true); }
@@ -186,7 +186,7 @@ export default function App() {
 
             <TaskList tasks={tasks} onRun={async (task, args, justfile) => {
               try {
-                await invoke("run_task", { task, args, justfile });
+                await invoke("run_task", { req: { task, args, justfile } });
                 showFlash(t("taskStarted"));
                 addRun(task, `just ${task} ${args.join(" ")}`);
               } catch (e) { showFlash(t("taskFail") + ": " + e, true); }
@@ -212,7 +212,7 @@ export default function App() {
           }}
           onSet={async (key, value) => {
             try {
-              await invoke("chapter_config_set", { key, value });
+              await invoke("chapter_config_set", { req: { key, value } });
               showFlash(t("overrideSaved") + ": " + key);
               loadAll();
             } catch (e) { showFlash(String(e), true); }
