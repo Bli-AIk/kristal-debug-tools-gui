@@ -69,10 +69,12 @@ jobs:
           cache: npm
 
       - name: Build sidecar (tauri externalBin)
+        shell: bash
+        working-directory: src-tauri
         run: |
           cargo build --release --bin kristal-run
-          mkdir -p src-tauri/binaries
-          cp target/release/${{ matrix.sidecar }} src-tauri/binaries/kristal-run-${{ matrix.triple }}
+          mkdir -p binaries
+          cp target/release/${{ matrix.sidecar }} binaries/kristal-run-${{ matrix.triple }}
 
       - name: Build frontend
         run: |
@@ -86,8 +88,8 @@ jobs:
         if: runner.os == 'Windows'
         run: |
           mkdir dist/upload
-          Copy-Item target/release/kristal-debug-tools-gui.exe dist/upload/kristal-debug-tools-gui-windows-x64.exe
-          Copy-Item target/release/kristal-run.exe dist/upload/kristal-run-windows-x64.exe
+          Copy-Item src-tauri/target/release/kristal-debug-tools-gui.exe dist/upload/kristal-debug-tools-gui-windows-x64.exe
+          Copy-Item src-tauri/target/release/kristal-run.exe dist/upload/kristal-run-windows-x64.exe
           Get-FileHash dist/upload/* -Algorithm SHA256 |
             ForEach-Object { "$($_.Hash.ToLower())  $([System.IO.Path]::GetFileName($_.Path))" } |
             Out-File -Encoding ascii dist/upload/checksums.txt
@@ -96,8 +98,8 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           mkdir -p dist/upload
-          cp target/release/kristal-debug-tools-gui dist/upload/kristal-debug-tools-gui-linux-x64
-          cp target/release/kristal-run dist/upload/kristal-run-linux-x64
+          cp src-tauri/target/release/kristal-debug-tools-gui dist/upload/kristal-debug-tools-gui-linux-x64
+          cp src-tauri/target/release/kristal-run dist/upload/kristal-run-linux-x64
           (cd dist/upload && sha256sum * > checksums.txt)
 
       - name: Build Tauri bundles and attach to release
