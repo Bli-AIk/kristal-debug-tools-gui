@@ -573,7 +573,7 @@ function ChapterConfigPage({ config, onBack, onPickChapter, onSaveAll }: {
             <span className="chapter-buttons">
               {[1, 2, 3, 4].map((n) => (
                 <button key={n}
-                  className={"btn small" + (n === config.chapter ? " applied" : "") + (n === selected && pending ? " pending" : "")}
+                  className={"btn small" + (n === config.chapter && !hasCustom ? " applied" : "") + (n === selected && pending ? " pending" : "")}
                   onClick={() => setSelected(n)}>Ch.{n}</button>
               ))}
               <button className={"btn small" + (hasCustom ? " applied" : "")}
