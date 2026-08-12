@@ -25,7 +25,10 @@ jobs:
     steps:
       - name: Run release-please
         id: release
-        uses: googleapis/release-please-action@v5
+        # Pin past v5.0.0: v5.0.0 bundles release-please 17.6.0, which fails on
+        # GitHub 502/Server Error while fetching merge commits. This commit
+        # includes release-please 17.6.1's GraphQL batch-size backoff fix.
+        uses: googleapis/release-please-action@0b6b3fc0186a2f7118bfd88fab9ea481e1839504
         with:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json

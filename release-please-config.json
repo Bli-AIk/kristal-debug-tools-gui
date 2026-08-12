@@ -33,8 +33,9 @@
       "include-component-in-tag": false,
       "extra-files": [
         {
-          "type": "cargo",
-          "path": "src-tauri/Cargo.toml"
+          "type": "toml",
+          "path": "src-tauri/Cargo.toml",
+          "jsonpath": "$.package.version"
         },
         {
           "type": "json",
