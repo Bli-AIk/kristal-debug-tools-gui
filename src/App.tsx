@@ -678,7 +678,17 @@ function ChapterConfigPage({ config, onBack, onPickChapter, onSaveAll }: {
                     )}
                   </span>
                   <span className="cc-control">
-                    {typeof item.current.value === "string" ? (
+                    {typeof item.current.value === "boolean" ? (
+                      <span className="cc-pair">
+                        {[true, false].map((bv) => (
+                          <button key={String(bv)}
+                            className={"btn small" + (String(shownVal) === String(bv) ? " applied" : "")}
+                            onClick={() => { if (String(shownVal) !== String(bv)) edit(item.key, bv); }}>
+                            {bv ? "是" : "否"}
+                          </button>
+                        ))}
+                      </span>
+                    ) : typeof item.current.value === "string" ? (
                       <>
                         <input className={"cc-edit" + (hasEdit ? " pending" : "")} type="text"
                           placeholder={item.key === "default_encounter" ? t("encounterEmpty") : ""}
