@@ -782,6 +782,12 @@ function IconConfigPage({ onBack, onFlash }: {
   const slotsByGroup = (g: string) => icon.slots.filter((s) => s.group === g);
 
   return (
+    <>
+    {busy && (
+      <div className="loading-mask">
+        <div className="loading-bar" />
+      </div>
+    )}
     <main className="layout">
       <div className="broken-box panel icons-page">
         <div className="panel-head">
@@ -829,5 +835,6 @@ function IconConfigPage({ onBack, onFlash }: {
         ))}
       </div>
     </main>
+  </>
   );
 }

@@ -564,6 +564,38 @@ input:focus, select:focus { outline: none; border-color: var(--yellow); }
 }
 .icons-tools { display: flex; gap: 8px; align-items: center; }
 .icons-group-hint { margin-top: 8px; font-size: 0.8rem; color: var(--muted); }
+
+/* Full-window grey loading overlay shown while an icon task runs off the
+   main thread (e.g. "generate all from one image"). The bar is a black
+   track with a yellow block sliding through, matching the pixel style. */
+.loading-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(50, 50, 50, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.loading-bar {
+  width: 220px;
+  height: 14px;
+  border: 2px solid var(--text);
+  background: #000;
+  overflow: hidden;
+}
+.loading-bar::after {
+  content: "";
+  display: block;
+  height: 100%;
+  width: 40%;
+  background: var(--yellow);
+  animation: loading-slide 0.9s linear infinite;
+}
+@keyframes loading-slide {
+  0% { transform: translateX(-110%); }
+  100% { transform: translateX(280%); }
+}
 .icons-group h3 {
   font-family: var(--font-bold);
   font-size: 0.95rem;

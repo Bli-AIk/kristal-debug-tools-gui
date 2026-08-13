@@ -151,14 +151,20 @@ pub fn icon_status(state: State<AppState>) -> Value {
 }
 
 /// Set a single slot from a data URL (the picked image is resized to the
-/// slot's target size). Returns the updated slot description.
+/// slot's target size). Returns the updated slot description. Runs off the
+/// main thread so a large source image cannot freeze the UI.
 #[tauri::command(rename_all = "camelCase")]
-pub fn icon_set(state: State<AppState>, key: String, data_url: String) -> Result<Value, String> {
-    let slot = slot_by_key(&key).ok_or_else(|| format!("unknown icon slot: {}", key))?;
-    let rgba = decode_resize(&data_url, slot.size)?;
-    let dir = icon_dir(&state);
-    write_png(slot, &dir, &rgba)?;
-    Ok(slot_json(slot, &dir))
+pub async fn icon_set(state: State<'_, AppState>, key: String, data_url: String) -> Result<Value, String> {
+    let mod_root = state.mod_root.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let slot = slot_by_key(&key).ok_or_else(|| format!("unknown icon slot: {}", key))?;
+        let rgba = decode_resize(&data_url, slot.size)?;
+        let dir = mod_root.join("assets").join("icon");
+        write_png(slot, &dir, &rgba)?;
+        Ok(slot_json(slot, &dir))
+    })
+    .await
+    .map_err(|e| format!("icon set task failed: {}", e))?
 }
 
 /// Delete one slot's icon file.
@@ -174,23 +180,29 @@ pub fn icon_clear(state: State<AppState>, key: String) -> Result<Value, String> 
 }
 
 /// Generate every slot from one source image: the window icon is saved
-/// as-is, every sized slot gets a resized copy.
+/// as-is, every sized slot gets a resized copy. Runs off the main thread so
+/// generating all 13 slots from a large source cannot freeze the UI.
 #[tauri::command(rename_all = "camelCase")]
-pub fn icon_generate(state: State<AppState>, data_url: String) -> Result<Value, String> {
-    let src = decode_data_url(&data_url)?;
-    let base = image::load_from_memory(&src)
-        .map_err(|e| format!("not a decodable image (PNG expected): {}", e))?
-        .to_rgba8();
-    let dir = icon_dir(&state);
-    for slot in SLOTS {
-        let rgba = match slot.size {
-            Some((tw, th)) => image::imageops::resize(&base, tw, th, FilterType::Lanczos3),
-            None => base.clone(),
-        };
-        write_png(slot, &dir, &rgba)?;
-    }
-    let slots: Vec<Value> = SLOTS.iter().map(|s| slot_json(s, &dir)).collect();
-    Ok(json!({ "iconDir": dir.to_string_lossy().into_owned(), "slots": slots }))
+pub async fn icon_generate(state: State<'_, AppState>, data_url: String) -> Result<Value, String> {
+    let mod_root = state.mod_root.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let src = decode_data_url(&data_url)?;
+        let base = image::load_from_memory(&src)
+            .map_err(|e| format!("not a decodable image (PNG expected): {}", e))?
+            .to_rgba8();
+        let dir = mod_root.join("assets").join("icon");
+        for slot in SLOTS {
+            let rgba = match slot.size {
+                Some((tw, th)) => image::imageops::resize(&base, tw, th, FilterType::Lanczos3),
+                None => base.clone(),
+            };
+            write_png(slot, &dir, &rgba)?;
+        }
+        let slots: Vec<Value> = SLOTS.iter().map(|s| slot_json(s, &dir)).collect();
+        Ok(json!({ "iconDir": dir.to_string_lossy().into_owned(), "slots": slots }))
+    })
+    .await
+    .map_err(|e| format!("icon generation task failed: {}", e))?
 }
 
 #[cfg(test)]
