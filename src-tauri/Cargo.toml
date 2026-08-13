@@ -16,6 +16,13 @@ default-run = "kristal-debug-tools-gui"
 name = "kristal_debug_tools_gui_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
+# Production builds must flip tauri::is_dev() to false so the webview loads the
+# embedded frontend instead of the dev-server URL. `tauri build` enables this
+# automatically, but declaring it here keeps bare `cargo build --features
+# custom-protocol` working too.
+[features]
+custom-protocol = ["tauri/custom-protocol"]
+
 # CLI sidecar: game launcher + just-task/just-dump. Console subsystem
 # (default) so it works inside interactive terminal windows on Windows.
 [[bin]]

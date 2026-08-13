@@ -165,18 +165,14 @@ jobs:
           cp target/${{ matrix.triple }}/release/kristal-run${{ matrix.exe_ext }} \
              binaries/kristal-run-${{ matrix.triple }}${{ matrix.exe_ext }}
 
-      # tauri::generate_context! reads frontendDist (../dist) at compile time,
-      # so the frontend must exist before the main binary compiles.
-      - name: Build frontend
-        run: npm run build
-
-      # Main GUI binary (also what tauri-action embeds). Built explicitly so the
-      # raw-launcher staging below is independent of the bundling step.
+      # Main GUI binary with the frontend embedded. MUST go through the Tauri
+      # CLI (`tauri build`), not a bare `cargo build --release`: the CLI enables
+      # the `custom-protocol` feature, which flips tauri::is_dev() to false so
+      # the webview loads the embedded frontend instead of the dev-server URL
+      # (http://localhost:1420). `--no-bundle` skips packaging here;
+      # tauri-action produces the installers afterwards.
       - name: Build main GUI binary
-        shell: bash
-        working-directory: src-tauri
-        run: |
-          cargo build --release --target ${{ matrix.triple }} --bin kristal-debug-tools-gui
+        run: npm run tauri build -- --target ${{ matrix.triple }} --no-bundle
 
       # Raw binaries for the no-toolchain launcher, renamed per platform+arch,
       # with a PER-ARCH checksum file (4 jobs sharing one checksums.txt would
