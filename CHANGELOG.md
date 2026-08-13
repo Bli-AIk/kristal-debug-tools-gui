@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.1.1](https://github.com/Bli-AIk/kristal-debug-tools-gui/compare/v0.1.0...v0.1.1) (2026-08-13)
+
+
+### chore
+
+* force release 0.1.1 ([46af2dc](https://github.com/Bli-AIk/kristal-debug-tools-gui/commit/46af2dcc0e44566f9f5236bfe90e7a6698a36602))
+
+
+### Features
+
+* add icon configuration panel (Unity-style multi-resolution icons) ([98a737d](https://github.com/Bli-AIk/kristal-debug-tools-gui/commit/98a737da0c904da73709ce8cf9668ac8600aa653))
+* remove compile-only mode setting ([28ee598](https://github.com/Bli-AIk/kristal-debug-tools-gui/commit/28ee59800234f742dc4cb89a63e18986ead2da14))
+
+
+### Bug Fixes
+
+* embed frontend into the raw release binary ([4e907eb](https://github.com/Bli-AIk/kristal-debug-tools-gui/commit/4e907eb89d719702a2b1f4ba41eba9fa84ec8494))
+* keep the UI responsive while generating icons ([2ab0f49](https://github.com/Bli-AIk/kristal-debug-tools-gui/commit/2ab0f49910e5561217c8bd3578db800a302c0312))
+
 ## [0.1.0](https://github.com/Bli-AIk/kristal-debug-tools-gui/compare/v0.1.0...v0.1.0) (2026-08-12)
 
 
