@@ -124,6 +124,21 @@ jobs:
         with:
           arch: ${{ matrix.msvc_arch }}
 
+      # Git Bash prepends /usr/bin to PATH, so rustc's `link.exe` would resolve
+      # to Git's GNU coreutils `link` instead of the MSVC ARM64 linker. Pin the
+      # linker explicitly for the whole job (also covers tauri-action's build).
+      # VCToolsInstallDir is set by msvc-dev-cmd above.
+      - name: Pin MSVC ARM64 linker
+        if: matrix.triple == 'aarch64-pc-windows-msvc'
+        shell: bash
+        run: |
+          if [ -n "${VCToolsInstallDir:-}" ]; then
+            echo "CARGO_TARGET_AARCH64_PC_WINDOWS_MSVC_LINKER=${VCToolsInstallDir}\\bin\\Hostx64\\arm64\\link.exe" >> "$GITHUB_ENV"
+          else
+            echo "::error::VCToolsInstallDir not set by msvc-dev-cmd"
+            exit 1
+          fi
+
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.triple }}
@@ -166,17 +181,19 @@ jobs:
       # Raw binaries for the no-toolchain launcher, renamed per platform+arch,
       # with a PER-ARCH checksum file (4 jobs sharing one checksums.txt would
       # collide). Output lives under target/<triple>/ because --target was used.
+      # NOTE: staged OUTSIDE dist/ — the tauri-action step re-runs beforeBuild
+      # (npm run build), and vite empties dist/, which would wipe dist/upload.
       - name: Stage raw binaries + per-arch checksums
         id: stage
         shell: bash
         working-directory: src-tauri
         run: |
-          mkdir -p ../dist/upload
+          mkdir -p ../release-upload
           cp target/${{ matrix.triple }}/release/kristal-debug-tools-gui${{ matrix.exe_ext }} \
-             ../dist/upload/kristal-debug-tools-gui-${{ matrix.platform }}-${{ matrix.arch }}${{ matrix.exe_ext }}
+             ../release-upload/kristal-debug-tools-gui-${{ matrix.platform }}-${{ matrix.arch }}${{ matrix.exe_ext }}
           cp target/${{ matrix.triple }}/release/kristal-run${{ matrix.exe_ext }} \
-             ../dist/upload/kristal-run-${{ matrix.platform }}-${{ matrix.arch }}${{ matrix.exe_ext }}
-          cd ../dist/upload
+             ../release-upload/kristal-run-${{ matrix.platform }}-${{ matrix.arch }}${{ matrix.exe_ext }}
+          cd ../release-upload
           sha256sum kristal-debug-tools-gui-${{ matrix.platform }}-${{ matrix.arch }}${{ matrix.exe_ext }} \
                     kristal-run-${{ matrix.platform }}-${{ matrix.arch }}${{ matrix.exe_ext }} \
             > checksums-${{ matrix.platform }}-${{ matrix.arch }}.txt
@@ -205,7 +222,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          cd dist/upload
+          cd release-upload
           gh release upload "$RELEASE_TAG" \
             kristal-debug-tools-gui-${{ matrix.platform }}-${{ matrix.arch }}${{ matrix.exe_ext }} \
             kristal-run-${{ matrix.platform }}-${{ matrix.arch }}${{ matrix.exe_ext }} \
