@@ -38,9 +38,34 @@ jobs:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
+  # On manual rebuilds, wipe existing assets first so tauri-action and
+  # gh release upload don't hit "asset already exists". The job always runs
+  # (the destructive step is gated), so `build` is never skip-propagated on
+  # push: cleanup always concludes success.
+  cleanup:
+    name: Clean existing release assets (manual rebuild)
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Delete existing assets from the target release (dispatch only)
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.tag != ''
+        shell: bash
+        run: |
+          set -eu
+          RELEASE_TAG="${{ github.event.inputs.tag }}"
+          echo "Deleting existing assets from $RELEASE_TAG"
+          # `|| true` guards against a missing release (empty asset list).
+          gh release view "$RELEASE_TAG" --json assets --jq '.assets[].name' 2>/dev/null \
+            | while IFS= read -r name; do
+                [ -n "$name" ] || continue
+                gh release delete-asset "$RELEASE_TAG" "$name" --yes || true
+              done \
+            || true
+
   build:
-    name: Build Tauri bundles (${{ matrix.os }})
-    needs: release-please
+    name: Build (${{ matrix.platform }}-${{ matrix.arch }})
+    needs: [release-please, cleanup]
     if: >-
       needs.release-please.outputs.release_created == 'true' ||
       (github.event_name == 'workflow_dispatch' && github.event.inputs.tag != '')
@@ -52,10 +77,29 @@ jobs:
         include:
           - os: ubuntu-latest
             triple: x86_64-unknown-linux-gnu
-            sidecar: kristal-run
+            platform: linux
+            arch: x64
+            exe_ext: ""
+            bundles: deb
+          - os: ubuntu-24.04-arm
+            triple: aarch64-unknown-linux-gnu
+            platform: linux
+            arch: arm64
+            exe_ext: ""
+            bundles: deb
           - os: windows-latest
             triple: x86_64-pc-windows-msvc
-            sidecar: kristal-run.exe
+            platform: windows
+            arch: x64
+            exe_ext: ".exe"
+            bundles: nsis
+          - os: windows-latest
+            triple: aarch64-pc-windows-msvc
+            platform: windows
+            arch: arm64
+            exe_ext: ".exe"
+            bundles: nsis
+            msvc_arch: amd64_arm64
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -70,47 +114,76 @@ jobs:
             librsvg2-dev \
             patchelf
 
+      # Only the arm64 Windows entry sets msvc_arch. vcvarsall's x64->arm64
+      # cross value is "amd64_arm64"; "arm64" alone is native-ARM64-only and
+      # errors on the x64 hosted runner. The action persists PATH/INCLUDE/LIB
+      # to GITHUB_ENV so the sidecar + main cargo builds below see them.
+      - name: Configure MSVC ARM64 cross toolchain
+        if: matrix.msvc_arch != ''
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: ${{ matrix.msvc_arch }}
+
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.triple }}
 
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
 
-      - name: Build sidecar (tauri externalBin)
+      - name: Install frontend dependencies
+        run: npm ci
+
+      # tauri-build runs build.rs for ANY bin in the package and validates the
+      # externalBin path for the current target triple at compile time, so the
+      # placeholder must exist BEFORE the sidecar itself compiles. The repo only
+      # commits x64 placeholders; the ARM entries need a touch here.
+      - name: Build sidecar for ${{ matrix.triple }}
         shell: bash
         working-directory: src-tauri
         run: |
-          cargo build --release --bin kristal-run
           mkdir -p binaries
-          cp target/release/${{ matrix.sidecar }} binaries/kristal-run-${{ matrix.triple }}
+          touch binaries/kristal-run-${{ matrix.triple }}${{ matrix.exe_ext }}
+          cargo build --release --target ${{ matrix.triple }} --bin kristal-run
+          cp target/${{ matrix.triple }}/release/kristal-run${{ matrix.exe_ext }} \
+             binaries/kristal-run-${{ matrix.triple }}${{ matrix.exe_ext }}
 
+      # tauri::generate_context! reads frontendDist (../dist) at compile time,
+      # so the frontend must exist before the main binary compiles.
       - name: Build frontend
-        run: |
-          npm ci
-          npm run build
+        run: npm run build
 
-      # Raw binaries for the no-toolchain launcher (gui.cmd / just gui):
-      # gui exe + kristal-run sidecar, renamed per platform, plus SHA256
-      # checksums so the download scripts can verify them.
-      - name: Stage raw binaries + checksums (Windows)
-        if: runner.os == 'Windows'
+      # Main GUI binary (also what tauri-action embeds). Built explicitly so the
+      # raw-launcher staging below is independent of the bundling step.
+      - name: Build main GUI binary
+        shell: bash
+        working-directory: src-tauri
         run: |
-          mkdir dist/upload
-          Copy-Item src-tauri/target/release/kristal-debug-tools-gui.exe dist/upload/kristal-debug-tools-gui-windows-x64.exe
-          Copy-Item src-tauri/target/release/kristal-run.exe dist/upload/kristal-run-windows-x64.exe
-          Get-FileHash dist/upload/* -Algorithm SHA256 |
-            ForEach-Object { "$($_.Hash.ToLower())  $([System.IO.Path]::GetFileName($_.Path))" } |
-            Out-File -Encoding ascii dist/upload/checksums.txt
+          cargo build --release --target ${{ matrix.triple }} --bin kristal-debug-tools-gui
 
-      - name: Stage raw binaries + checksums (Linux)
-        if: runner.os == 'Linux'
+      # Raw binaries for the no-toolchain launcher, renamed per platform+arch,
+      # with a PER-ARCH checksum file (4 jobs sharing one checksums.txt would
+      # collide). Output lives under target/<triple>/ because --target was used.
+      - name: Stage raw binaries + per-arch checksums
+        id: stage
+        shell: bash
+        working-directory: src-tauri
         run: |
-          mkdir -p dist/upload
-          cp src-tauri/target/release/kristal-debug-tools-gui dist/upload/kristal-debug-tools-gui-linux-x64
-          cp src-tauri/target/release/kristal-run dist/upload/kristal-run-linux-x64
-          (cd dist/upload && sha256sum * > checksums.txt)
+          mkdir -p ../dist/upload
+          cp target/${{ matrix.triple }}/release/kristal-debug-tools-gui${{ matrix.exe_ext }} \
+             ../dist/upload/kristal-debug-tools-gui-${{ matrix.platform }}-${{ matrix.arch }}${{ matrix.exe_ext }}
+          cp target/${{ matrix.triple }}/release/kristal-run${{ matrix.exe_ext }} \
+             ../dist/upload/kristal-run-${{ matrix.platform }}-${{ matrix.arch }}${{ matrix.exe_ext }}
+          cd ../dist/upload
+          sha256sum kristal-debug-tools-gui-${{ matrix.platform }}-${{ matrix.arch }}${{ matrix.exe_ext }} \
+                    kristal-run-${{ matrix.platform }}-${{ matrix.arch }}${{ matrix.exe_ext }} \
+            > checksums-${{ matrix.platform }}-${{ matrix.arch }}.txt
+          ls -l
 
+      # Bundles only. args overrides tauri.conf.json bundle.targets per arch so
+      # an unsupported bundle target on one arch can't kill another job.
       - name: Build Tauri bundles and attach to release
         uses: tauri-apps/tauri-action@v0
         env:
@@ -120,4 +193,21 @@ jobs:
           releaseName: ${{ env.RELEASE_TAG }}
           releaseDraft: false
           prerelease: false
-          files: dist/upload/*
+          args: --target ${{ matrix.triple }} --bundles ${{ matrix.bundles }}
+
+      # tauri-action v0 has NO `files` input (silently ignored), so the raw
+      # launcher binaries + checksums are attached explicitly here. Runs even
+      # when the bundle step fails: the raw binaries are the real launcher
+      # deliverable.
+      - name: Attach raw launcher binaries + checksums
+        if: steps.stage.conclusion == 'success'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd dist/upload
+          gh release upload "$RELEASE_TAG" \
+            kristal-debug-tools-gui-${{ matrix.platform }}-${{ matrix.arch }}${{ matrix.exe_ext }} \
+            kristal-run-${{ matrix.platform }}-${{ matrix.arch }}${{ matrix.exe_ext }} \
+            checksums-${{ matrix.platform }}-${{ matrix.arch }}.txt \
+            --clobber

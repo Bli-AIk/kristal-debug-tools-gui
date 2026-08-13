@@ -16,7 +16,7 @@ Windows / Linux 都只需要 **LÖVE 装好并进 PATH**（Git Bash 进 PATH 后
 
 | 方式 | 说明 |
 |---|---|
-| 下载 Release | 去 [Releases](https://github.com/Bli-AIk/kristal-debug-tools-gui/releases) 拿 `kristal-debug-tools-gui-windows-x64.exe`（`kristal-run-windows-x64.exe` 放同一目录）或 Linux 裸二进制，双击运行 |
+| 下载 Release | 去 [Releases](https://github.com/Bli-AIk/kristal-debug-tools-gui/releases) 拿对应架构（x64/arm64）的裸二进制，双击运行 |
 | `just gui` | mod 里 `just --justfile libraries/kristal-debug-tools/justfile gui`，首次自动下载最新 release 到 `.tools/gui/`（SHA256 校验），之后直接跑 |
 | `gui.cmd` | 库目录里双击 `gui.cmd`（Windows），逻辑同上 |
 
@@ -53,9 +53,8 @@ src/                       # React 前端（中英双语、DPR 缩放、章节�
 
 [release-please](https://github.com/googleapis/release-please) 管理版本（`Cargo.toml` / `tauri.conf.json` / `package.json` 三处同步）。合并 release PR 后 CI 自动构建并上传：
 
-- `kristal-debug-tools-gui-windows-x64.exe` + `kristal-run-windows-x64.exe`（裸二进制，供一键下载）
-- Linux 裸二进制 `kristal-debug-tools-gui-linux-x64` + `kristal-run-linux-x64`
-- `checksums.txt`（SHA256，下载脚本校验用）
+- `kristal-debug-tools-gui-{windows,linux}-{x64,arm64}[.exe]` + `kristal-run-{windows,linux}-{x64,arm64}[.exe]`（裸二进制，launcher 按宿主架构自动选择）
+- `checksums-{windows,linux}-{x64,arm64}.txt`（SHA256，下载脚本校验用）
 - deb / nsis 安装包（顺手打包的，不是主推路径）
 
 二进制未签名，SmartScreen 提示时选 "More info → Run anyway"。
