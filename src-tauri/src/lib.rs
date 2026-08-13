@@ -2,6 +2,7 @@
 
 mod commands;
 mod config;
+mod icons;
 pub mod launcher; // used by the kristal-run sidecar bin
 mod tasks;
 mod term;
@@ -54,6 +55,10 @@ pub fn run() {
             commands::chapter_config_save,
             commands::template_init,
             commands::engine_info_command,
+            icons::icon_status,
+            icons::icon_set,
+            icons::icon_clear,
+            icons::icon_generate,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -34,6 +34,13 @@ const I18N: Record<string, Record<string, string>> = {
     run: "运行", refresh: "刷新",
     otherConfig: "其他配置", encounterEmpty: "留空为无",
     settings: "设置", language: "语言", keepOpen: "任务运行完保持窗口打开",
+    icons: "自定义图标", iconsGenerate: "从一张大图生成全部", iconsPick: "选择",
+    iconsClear: "清除", iconsGroupWindow: "游戏窗口", iconsGroupWin: "Windows (.exe)",
+    iconsGroupAndroid: "Android 启动图标", iconsRebuildHint: "保存后需在 thrash-machine 里重新构建（just build）才会生效",
+    iconsScopeHint: "仅对 win 和 android 构建生效",
+    iconsAndroidHint: "Android 按屏幕密度取图标：某档缺失时，构建会用最接近的一档自动补位。",
+    iconsSaved: "图标已更新", iconsCleared: "已清除", iconsBadImage: "不是可用的图片",
+    iconsEmpty: "未设置",
   },
   en: {
     tasks: "RUN LIST (ADVANCED)", launch: "LAUNCH GAME", runs: "RUNS",
@@ -56,6 +63,13 @@ const I18N: Record<string, Record<string, string>> = {
     run: "RUN", refresh: "REFRESH",
     otherConfig: "OTHER CONFIG", encounterEmpty: "empty = none",
     settings: "SETTINGS", language: "LANGUAGE", keepOpen: "keep the task window open after it finishes",
+    icons: "CUSTOM ICONS", iconsGenerate: "GENERATE ALL FROM ONE IMAGE", iconsPick: "CHOOSE",
+    iconsClear: "CLEAR", iconsGroupWindow: "GAME WINDOW", iconsGroupWin: "WINDOWS (.EXE)",
+    iconsGroupAndroid: "ANDROID LAUNCHER", iconsRebuildHint: "takes effect after rebuilding the mod (just build)",
+    iconsScopeHint: "applies only to win and android builds",
+    iconsAndroidHint: "Android picks icons by screen density; a missing slot falls back to the nearest one at build time.",
+    iconsSaved: "icons updated", iconsCleared: "cleared", iconsBadImage: "not a usable image",
+    iconsEmpty: "EMPTY",
   },
 };
 
@@ -103,7 +117,7 @@ export default function App() {
   const [status, setStatus] = useState<Status | null>(null);
   const [tasks, setTasks] = useState<TasksResult | null>(null);
   const [chapterConfig, setChapterConfig] = useState<ChapterConfig | null>(null);
-  const [view, setView] = useState<"main" | "chapter">("main");
+  const [view, setView] = useState<"main" | "chapter" | "icons">("main");
   const [flash, setFlash] = useState<{ msg: string; err?: boolean } | null>(null);
   const [runs, setRuns] = useState<RunEntry[]>([]);
   const [, force] = useState(0);
@@ -228,7 +242,7 @@ export default function App() {
           <div className="cell c2r1">
             <ChapterEntry chapter={chapterConfig?.chapter ?? 0} count={overrideCount}
               onOpen={() => { loadAll(); setView("chapter"); }} />
-            <ProjectPanel status={status} />
+            <ProjectPanel status={status} onIcons={() => setView("icons")} />
           </div>
 
           {status?.template?.isTemplate && (
@@ -254,7 +268,7 @@ export default function App() {
             }} onRefresh={loadAll} />
           </div>
         </main>
-      ) : (
+      ) : view === "chapter" ? (
         <ChapterConfigPage
           config={chapterConfig}
           onBack={() => setView("main")}
@@ -266,6 +280,8 @@ export default function App() {
             } catch (e) { showFlash(String(e), true); }
           }}
         />
+      ) : (
+        <IconConfigPage onBack={() => setView("main")} onFlash={showFlash} />
       )}
     </div>
   );
@@ -483,11 +499,14 @@ function TaskList({ tasks, onRun, onRefresh }: {
 
 /* ---------- project panel ---------- */
 
-function ProjectPanel({ status }: { status: Status | null }) {
+function ProjectPanel({ status, onIcons }: { status: Status | null; onIcons: () => void }) {
   if (!status?.project?.id) return null;
   return (
     <div className="broken-box panel">
-      <h2>{t("project")}</h2>
+      <div className="panel-head">
+        <h2>{t("project")}</h2>
+        <button className="btn small" onClick={onIcons}>{t("icons")}</button>
+      </div>
       <div className="project-info">
         <div className="proj-name">{status.project.name || status.project.id}</div>
         {status.project.subtitle ? <div className="proj-sub">{status.project.subtitle}</div> : null}
@@ -666,6 +685,149 @@ function ChapterConfigEditor({ config, onBack, onSaveAll }: {
             })}
           </div>
         </div>
+    </main>
+  );
+}
+
+/* ---------- icon config page ---------- */
+
+interface IconSlot {
+  key: string; group: string; label: string; relPath: string;
+  targetSize: [number, number] | null;
+  exists: boolean; actualSize: [number, number] | null;
+  thumb: string | null; path: string;
+}
+interface IconStatus { iconDir: string; slots: IconSlot[] }
+
+const readFileAsDataURL = (f: File) =>
+  new Promise<string>((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result));
+    r.onerror = () => reject(r.error);
+    r.readAsDataURL(f);
+  });
+
+function IconConfigPage({ onBack, onFlash }: {
+  onBack: () => void;
+  onFlash: (msg: string, err?: boolean) => void;
+}) {
+  const [icon, setIcon] = useState<IconStatus | null>(null);
+  const [busy, setBusy] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const targetRef = useRef<string>("");
+
+  const load = useCallback(() => {
+    invoke<IconStatus>("icon_status").then(setIcon).catch(() => setIcon(null));
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  const pick = (target: string) => {
+    targetRef.current = target;
+    fileRef.current?.click();
+  };
+
+  const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-picking the same file
+    if (!file) return;
+    let dataUrl: string;
+    try {
+      dataUrl = await readFileAsDataURL(file);
+    } catch {
+      onFlash(t("iconsBadImage"), true);
+      return;
+    }
+    setBusy(true);
+    try {
+      if (targetRef.current === "generate") {
+        await invoke("icon_generate", { dataUrl });
+      } else {
+        await invoke("icon_set", { key: targetRef.current, dataUrl });
+      }
+      onFlash(t("iconsSaved"));
+      load();
+    } catch (err) {
+      onFlash(String(err), true);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const clear = async (key: string) => {
+    setBusy(true);
+    try {
+      await invoke("icon_clear", { key });
+      onFlash(t("iconsCleared"));
+      load();
+    } catch (err) {
+      onFlash(String(err), true);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (!icon) {
+    return (
+      <main className="layout">
+        <div className="cell c1r1"><div className="broken-box panel"><p className="hint">…</p></div></div>
+      </main>
+    );
+  }
+
+  const groups: [string, string][] = [
+    ["window", t("iconsGroupWindow")],
+    ["win", t("iconsGroupWin")],
+    ["android", t("iconsGroupAndroid")],
+  ];
+  const slotsByGroup = (g: string) => icon.slots.filter((s) => s.group === g);
+
+  return (
+    <main className="layout">
+      <div className="broken-box panel icons-page">
+        <div className="panel-head">
+          <h2>{t("icons")}</h2>
+          <span className="icons-tools">
+            <button className="btn small" onClick={() => pick("generate")} disabled={busy}>
+              {t("iconsGenerate")}
+            </button>
+            <button className="btn small" onClick={onBack}>← {t("back")}</button>
+          </span>
+        </div>
+        <p className="hint">{t("iconsRebuildHint")}</p>
+        <p className="hint">{t("iconsScopeHint")}</p>
+        <input ref={fileRef} type="file" accept="image/png,image/jpeg"
+          style={{ display: "none" }} onChange={onFile} />
+        {groups.map(([g, title]) => (
+          <div className="icons-group" key={g}>
+            <h3>{title}</h3>
+            <div className="icon-grid">
+              {slotsByGroup(g).map((s) => (
+                <div className={"icon-slot" + (s.exists ? "" : " empty")} key={s.key}>
+                  <div className="icon-thumb">
+                    {s.thumb
+                      ? <img src={s.thumb} alt={s.label} />
+                      : <span className="icon-empty">{t("iconsEmpty")}</span>}
+                  </div>
+                  <span className="icon-label">{s.label}</span>
+                  {s.actualSize && (
+                    <span className={"icon-size" + (s.targetSize && (s.actualSize[0] !== s.targetSize[0] || s.actualSize[1] !== s.targetSize[1]) ? " warn" : "")}>
+                      {s.actualSize[0]}×{s.actualSize[1]}
+                    </span>
+                  )}
+                  <span className="icon-actions">
+                    <button className="btn small" onClick={() => pick(s.key)} disabled={busy}>
+                      {t("iconsPick")}
+                    </button>
+                    <button className="btn small danger" title={t("iconsClear")}
+                      onClick={() => clear(s.key)} disabled={busy || !s.exists}>{t("iconsClear")}</button>
+                  </span>
+                </div>
+              ))}
+            </div>
+            {g === "android" && <p className="hint icons-group-hint">{t("iconsAndroidHint")}</p>}
+          </div>
+        ))}
+      </div>
     </main>
   );
 }

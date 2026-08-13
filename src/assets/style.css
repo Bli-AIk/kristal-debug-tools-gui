@@ -314,6 +314,9 @@ details.broken-box summary:hover::after { color: var(--yellow); }
   padding: 0.35em 0.9em;
   cursor: pointer;
   text-shadow: 0.125em 0.125em #000;
+  /* Buttons must never wrap their label (e.g. "选择" → 选/择) when the
+     container is narrower than the text + padding. */
+  white-space: nowrap;
 }
 .btn:hover { color: var(--yellow); border-color: var(--yellow); }
 .btn.small { padding: 0.15em 0.6em; font-size: 0.85rem; }
@@ -552,3 +555,56 @@ input:focus, select:focus { outline: none; border-color: var(--yellow); }
 ::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.6); }
 ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.35); }
 ::-webkit-scrollbar-thumb:hover { background: var(--yellow); }
+
+/* --- icon config page --- */
+
+.icons-page {
+  grid-column: 1 / -1; /* span the full layout width (like the chapter page) */
+  max-width: 1100px;
+}
+.icons-tools { display: flex; gap: 8px; align-items: center; }
+.icons-group-hint { margin-top: 8px; font-size: 0.8rem; color: var(--muted); }
+.icons-group h3 {
+  font-family: var(--font-bold);
+  font-size: 0.95rem;
+  color: var(--dim);
+  margin: 0 0 8px;
+  padding-bottom: 4px;
+  border-bottom: 2px solid var(--muted);
+}
+.icon-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  gap: 10px;
+}
+.icon-slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px;
+  border: 2px solid var(--muted);
+}
+.icon-slot.empty { border-style: dashed; opacity: 0.7; }
+.icon-thumb {
+  width: 64px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+  border: 2px solid var(--panel-dim);
+}
+.icon-thumb img { max-width: 60px; max-height: 60px; image-rendering: pixelated; }
+.icon-empty { color: var(--muted); font-size: 0.7rem; }
+.icon-label { font-size: 0.8rem; color: var(--dim); }
+.icon-size { font-size: 0.7rem; color: var(--muted); }
+.icon-size.warn { color: var(--orange); }
+.icon-actions {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap; /* let the two buttons stack intact instead of shrinking */
+  justify-content: center;
+}
+.icon-actions .btn { flex: 1 1 auto; }
+
