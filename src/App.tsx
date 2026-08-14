@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import type { IconType } from "react-icons";
+import { FaAndroid, FaBox, FaBroom, FaHammer, FaHeart, FaMobile, FaWindows, FaWrench } from "react-icons/fa6";
 import {
   editForValue,
   effectiveValue,
@@ -15,7 +17,7 @@ import "./assets/style.css";
 const I18N: Record<string, Record<string, string>> = {
   zh: {
     tasks: "运行项列表（高级）", launch: "启动游戏", runs: "运行记录",
-    project: "项目信息", system: "系统", libraries: "依赖库", projectBuilds: "项目构建",
+    project: "项目信息", system: "系统", libraries: "依赖库", projectBuilds: "项目构建", build: "构建",
     initProject: "项目初始化", projectName: "项目名", initBtn: "初始化项目", initConfirm: "再次点击确认",
     initDone: "初始化已在终端窗口启动，完成后建议重启 GUI", initFail: "初始化失败",
     customConfig: "自定义配置", configure: "配置", chapterConfig: "章节预设",
@@ -44,7 +46,7 @@ const I18N: Record<string, Record<string, string>> = {
   },
   en: {
     tasks: "RUN LIST (ADVANCED)", launch: "LAUNCH GAME", runs: "RUNS",
-    project: "PROJECT", system: "system", libraries: "libraries", projectBuilds: "PROJECT BUILDS",
+    project: "PROJECT", system: "system", libraries: "libraries", projectBuilds: "PROJECT BUILDS", build: "BUILD",
     initProject: "INITIALIZE PROJECT", projectName: "PROJECT NAME", initBtn: "INITIALIZE", initConfirm: "CLICK AGAIN TO CONFIRM",
     initDone: "initialization started in a terminal window — restart the GUI when done", initFail: "init failed",
     customConfig: "CUSTOM CONFIG", configure: "CONFIGURE", chapterConfig: "CHAPTER PRESETS",
@@ -163,6 +165,16 @@ export default function App() {
   const addRun = (label: string, command: string) =>
     setRuns((rs) => [{ id: rs.length + 1, label, command }, ...rs].slice(0, 50));
 
+  // Runs any justfile task in a terminal window (the launch/init/build list
+  // and the quick build targets all share this one path).
+  const runTask = async (task: string, args: string[], justfile: string) => {
+    try {
+      await invoke("run_task", { req: { task, args, justfile, pause: keepOpen } });
+      showFlash(t("taskStarted"));
+      addRun(task, `just ${task} ${args.join(" ")}`);
+    } catch (e) { showFlash(t("taskFail") + ": " + e, true); }
+  };
+
   // Settings: language + "keep the task terminal open after it finishes",
   // stored in .tools/gui/settings.json.
   const [menuOpen, setMenuOpen] = useState(false);
@@ -245,8 +257,8 @@ export default function App() {
             <ProjectPanel status={status} onIcons={() => setView("icons")} />
           </div>
 
-          {status?.template?.isTemplate && (
-            <div className="cell c1r2">
+          <div className="cell c1r2">
+            {status?.template?.isTemplate && (
               <InitPanel onInit={async (name) => {
                 try {
                   await invoke("template_init", { req: { name } });
@@ -254,18 +266,13 @@ export default function App() {
                   addRun("initialize project", `bash start.sh --name ${name}`);
                 } catch (e) { showFlash(t("initFail") + ": " + e, true); }
               }} />
-            </div>
-          )}
+            )}
+            <BuildPanel tasks={tasks} onRun={runTask} />
+          </div>
           <div className="cell c2r2"><RunsLog runs={runs} /></div>
 
           <div className="cell c3">
-            <TaskList tasks={tasks} onRun={async (task, args, justfile) => {
-              try {
-                await invoke("run_task", { req: { task, args, justfile, pause: keepOpen } });
-                showFlash(t("taskStarted"));
-                addRun(task, `just ${task} ${args.join(" ")}`);
-              } catch (e) { showFlash(t("taskFail") + ": " + e, true); }
-            }} onRefresh={loadAll} />
+            <TaskList tasks={tasks} onRun={runTask} onRefresh={loadAll} />
           </div>
         </main>
       ) : view === "chapter" ? (
@@ -519,6 +526,49 @@ function ProjectPanel({ status, onIcons }: { status: Status | null; onIcons: () 
             </ul>
           </>
         ) : null}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- build panel (quick build targets) ---------- */
+
+// The mod's build targets, shown as white icons + captions in a block to the
+// left of the runs log. Keyed by justfile task name; any new build* task gets
+// a wrench fallback so it keeps working without a code change.
+const BUILD_ICONS: Record<string, IconType> = {
+  "build": FaHammer,
+  "build-love": FaHeart,
+  "build-win": FaWindows,
+  "build-mod": FaBox,
+  "build-android": FaAndroid,
+  "build-android-wrap": FaMobile,
+  "clean-build": FaBroom,
+};
+const isBuildTarget = (tk: TaskItem) =>
+  tk.name === "build" || tk.name.startsWith("build-") || tk.name === "clean-build";
+
+function BuildPanel({ tasks, onRun }: {
+  tasks: TasksResult | null;
+  onRun: (task: string, args: string[], justfile: string) => void;
+}) {
+  const builds = tasks?.mod?.tasks.filter(isBuildTarget) ?? [];
+  if (!builds.length) return null;
+  return (
+    <div className="broken-box panel">
+      <div className="panel-head"><h2>{t("build")}</h2></div>
+      <div className="build-grid">
+        {builds.map((tk) => {
+          const Icon = BUILD_ICONS[tk.name] ?? FaWrench;
+          return (
+            <button className="build-target" key={tk.name}
+              title={tk.doc ?? tk.name}
+              onClick={() => onRun(tk.name, [], "project")}>
+              <span className="build-icon"><Icon /></span>
+              <span className="build-label">{tk.name}</span>
+            </button>
+          );
+        })}
       </div>
     </div>
   );
