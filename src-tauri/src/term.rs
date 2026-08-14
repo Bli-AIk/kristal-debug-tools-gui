@@ -22,18 +22,15 @@ mod windows {
     use super::*;
     use base64::engine::general_purpose::STANDARD;
     use base64::Engine as _;
-    use std::os::windows::process::CommandExt;
-    use std::process::Command;
+    use std::ffi::OsStr;
+    use std::os::windows::ffi::OsStrExt;
+    use windows_sys::Win32::Foundation::{CloseHandle, FALSE};
+    use windows_sys::Win32::System::Threading::{
+        CreateProcessW, PROCESS_INFORMATION, STARTUPINFOW, CREATE_NEW_CONSOLE,
+    };
 
-    /// Give the child its own console window, detached from the GUI.
-    const CREATE_NEW_CONSOLE: u32 = 0x0000_0010;
-
-    /// Launch argv directly via CreateProcess — no shell is involved, so
-    /// Windows path quoting can never break the command line. (The old
-    /// `cmd /c` + POSIX-single-quote path made every Windows launch die on
-    /// the opening quote before the command ever ran.)
     pub fn spawn(argv: &[String], dir: &Path, pause: bool) -> Result<(), String> {
-        let mut cmd = if pause {
+        let real_argv: Vec<String> = if pause {
             // keep-open: run argv from a PowerShell script that waits for
             // Enter after the command finishes. The script is passed
             // base64-encoded (-EncodedCommand) so nothing can mangle its
@@ -45,22 +42,137 @@ mod windows {
                     .flat_map(u16::to_le_bytes)
                     .collect::<Vec<_>>(),
             );
-            let mut c = Command::new("powershell");
-            c.args([
-                "-NoProfile",
-                "-ExecutionPolicy",
-                "Bypass",
-                "-EncodedCommand",
-                encoded.as_str(),
-            ]);
-            c
+            vec![
+                "powershell".to_string(),
+                "-NoProfile".to_string(),
+                "-ExecutionPolicy".to_string(),
+                "Bypass".to_string(),
+                "-EncodedCommand".to_string(),
+                encoded,
+            ]
         } else {
-            let mut c = Command::new(&argv[0]);
-            c.args(&argv[1..]);
-            c
+            argv.to_vec()
         };
-        cmd.current_dir(dir).creation_flags(CREATE_NEW_CONSOLE);
-        cmd.spawn().map(|_| ()).map_err(|e| e.to_string())
+        spawn_create_process(&real_argv, dir)
+    }
+
+    /// Launch argv directly via CreateProcessW with CREATE_NEW_CONSOLE and
+    /// bInheritHandles=FALSE — no shell, no quoting surprises. The child gets
+    /// NO inherited handles, so its standard handles default to NULL; being a
+    /// console app attached to a fresh console, its CRT binds them to that new
+    /// console's CONIN$/CONOUT$.
+    ///
+    /// This matters in dev builds: the debug exe is a console-subsystem app
+    /// attached to the `just gui-dev` terminal, and std::process::Command
+    /// forwards the parent's stdio handles to the child — the child writes
+    /// into the dev terminal while its new window stays blank. (In release the
+    /// exe is a windows-subsystem app with no console, so its handles are
+    /// already NULL and Rust's Command happened to work by accident.) The
+    /// explicit bInheritHandles=FALSE makes both modes behave the same.
+    fn spawn_create_process(argv: &[String], dir: &Path) -> Result<(), String> {
+        let exe = resolve_exe(&argv[0]).ok_or_else(|| format!("cannot resolve {}", argv[0]))?;
+        let cmdline = argv
+            .iter()
+            .map(|a| quote_cmd_arg(a))
+            .collect::<Vec<_>>()
+            .join(" ");
+        let mut cmdline_w: Vec<u16> = cmdline.encode_utf16().chain(std::iter::once(0)).collect();
+        let exe_w = to_wide(exe.as_os_str());
+        let dir_w = to_wide(dir.as_os_str());
+        let mut si: STARTUPINFOW = unsafe { std::mem::zeroed() };
+        si.cb = std::mem::size_of::<STARTUPINFOW>() as u32;
+        let mut pi: PROCESS_INFORMATION = unsafe { std::mem::zeroed() };
+        let ok = unsafe {
+            CreateProcessW(
+                exe_w.as_ptr(),
+                cmdline_w.as_mut_ptr(),
+                std::ptr::null(),
+                std::ptr::null(),
+                FALSE, // do not inherit the GUI's stdio/console handles
+                CREATE_NEW_CONSOLE,
+                std::ptr::null(),
+                dir_w.as_ptr(),
+                &si,
+                &mut pi,
+            )
+        };
+        if ok == 0 {
+            return Err(std::io::Error::last_os_error().to_string());
+        }
+        unsafe {
+            CloseHandle(pi.hThread);
+            CloseHandle(pi.hProcess);
+        }
+        Ok(())
+    }
+
+    /// Resolve a program name to a path CreateProcessW can use, mirroring
+    /// std::process::Command: paths with a separator pass through unchanged,
+    /// bare names are searched on PATH with .exe appended.
+    fn resolve_exe(name: &str) -> Option<std::ffi::OsString> {
+        let p = std::path::Path::new(name);
+        if p.is_absolute() || name.contains('\\') || name.contains('/') {
+            return Some(p.as_os_str().to_owned());
+        }
+        let candidate = if p.extension().is_none() {
+            format!("{}.exe", name)
+        } else {
+            name.to_string()
+        };
+        let path = std::env::var_os("PATH")?;
+        std::env::split_paths(&path)
+            .map(|d| d.join(&candidate))
+            .find(|c| c.is_file())
+            .map(|c| c.into_os_string())
+    }
+
+    /// Quote one argument for a Windows command line (CRT CommandLineToArgvW
+    /// rules): wrap in quotes when it contains whitespace, double backslashes
+    /// before an embedded quote, and double trailing backslashes.
+    fn quote_cmd_arg(s: &str) -> String {
+        if s.is_empty() {
+            return "\"\"".to_string();
+        }
+        let has_meta =
+            s.contains('"') || s.chars().any(|c| c == ' ' || c == '\t' || c == '\n' || c == '\r');
+        if !has_meta {
+            return s.to_string();
+        }
+        let mut out = String::with_capacity(s.len() + 2);
+        out.push('"');
+        let mut backslashes = 0usize;
+        for c in s.chars() {
+            match c {
+                '\\' => backslashes += 1,
+                '"' => {
+                    // Backslashes directly before a quote are doubled so they
+                    // stay literal, then the quote itself is escaped.
+                    for _ in 0..backslashes * 2 {
+                        out.push('\\');
+                    }
+                    backslashes = 0;
+                    out.push('\\');
+                    out.push('"');
+                }
+                _ => {
+                    for _ in 0..backslashes {
+                        out.push('\\');
+                    }
+                    backslashes = 0;
+                    out.push(c);
+                }
+            }
+        }
+        // Trailing backslashes are doubled before the closing quote.
+        for _ in 0..backslashes * 2 {
+            out.push('\\');
+        }
+        out.push('"');
+        out
+    }
+
+    fn to_wide(s: &OsStr) -> Vec<u16> {
+        s.encode_wide().chain(std::iter::once(0)).collect()
     }
 
     fn psh_quote(s: &str) -> String {

@@ -43,3 +43,9 @@ just = "1.58.0"
 # into each slot's target size, and emit thumbnails as data URLs.
 base64 = "0.22"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
+# Raw CreateProcessW in term.rs: the debug exe is a console-subsystem app, and
+# std::process::Command would hand the child the dev terminal's stdio handles
+# (blank new window); with bInheritHandles=FALSE the child binds its own fresh
+# console instead. 0.61 is already in the lock via tauri, so no new download.
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_Threading"] }
