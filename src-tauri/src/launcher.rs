@@ -155,6 +155,31 @@ pub struct Resolved {
     pub engine_root: PathBuf,
 }
 
+/// Windows `fs::canonicalize` returns extended-length `\\?\`-prefixed paths
+/// that msys / Git Bash cannot exec or cd into (the justfile's `sh` shell dies
+/// with "No such file or directory" / exit 127). Strip the prefix back to a
+/// normal path so the sidecar can hand the path to bash. No-op elsewhere.
+fn win_clean(p: PathBuf) -> PathBuf {
+    #[cfg(windows)]
+    {
+        return PathBuf::from(strip_windows_extended(&p.to_string_lossy()));
+    }
+    #[allow(unreachable_code)]
+    p
+}
+
+/// `\\?\C:\...` -> `C:\...` and `\\?\UNC\server\share\...` -> `\\server\share\...`.
+#[cfg_attr(not(windows), allow(dead_code))]
+fn strip_windows_extended(s: &str) -> String {
+    if let Some(rest) = s.strip_prefix(r"\\?\UNC\") {
+        return format!(r"\\{}", rest);
+    }
+    if let Some(rest) = s.strip_prefix(r"\\?\") {
+        return rest.to_string();
+    }
+    s.to_string()
+}
+
 /// Resolve the mod root and engine, mirroring bin/kristal-run.
 pub fn resolve(
     cwd: &Path,
@@ -169,9 +194,11 @@ pub fn resolve(
         _ => find_mod_root(&cwd)
             .ok_or_else(|| "Could not find mod.json. Run this command from a Kristal project or set KRISTAL_MOD_ROOT.".to_string())?,
     };
-    let mod_root = mod_root
-        .canonicalize()
-        .map_err(|e| format!("Could not resolve mod root: {}", e))?;
+    let mod_root = win_clean(
+        mod_root
+            .canonicalize()
+            .map_err(|e| format!("Could not resolve mod root: {}", e))?,
+    );
     let mod_id = mod_id(&mod_root);
 
     let engine_root = find_engine(&mod_root).or_else(|| {
@@ -179,8 +206,10 @@ pub fn resolve(
             .filter(|p| !p.is_empty())
             .map(PathBuf::from)
     });
-    let engine_root = engine_root
-        .ok_or_else(|| "Kristal engine not found. Set KRISTAL_ROOT=/path/to/Kristal.".to_string())?;
+    let engine_root = win_clean(
+        engine_root
+            .ok_or_else(|| "Kristal engine not found. Set KRISTAL_ROOT=/path/to/Kristal.".to_string())?,
+    );
     Ok(Resolved {
         mod_root,
         mod_id,
@@ -281,4 +310,37 @@ fn which_love(name: &str) -> Option<PathBuf> {
         }
     }
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn strips_local_extended_paths() {
+        assert_eq!(
+            strip_windows_extended(r"\\?\C:\Users\AIk\mods\thrash-machine"),
+            r"C:\Users\AIk\mods\thrash-machine"
+        );
+    }
+
+    #[test]
+    fn strips_unc_extended_paths() {
+        assert_eq!(
+            strip_windows_extended(r"\\?\UNC\server\share\mods\thrash-machine"),
+            r"\\server\share\mods\thrash-machine"
+        );
+    }
+
+    #[test]
+    fn leaves_normal_paths_alone() {
+        assert_eq!(
+            strip_windows_extended(r"C:\mods\thrash-machine"),
+            r"C:\mods\thrash-machine"
+        );
+        assert_eq!(
+            strip_windows_extended("/home/user/mods/thrash-machine"),
+            "/home/user/mods/thrash-machine"
+        );
+    }
 }
