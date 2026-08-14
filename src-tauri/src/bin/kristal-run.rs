@@ -34,11 +34,14 @@ fn prepend_git_bash_to_path() {
             dirs.extend(git_bash_dirs(&PathBuf::from(p).join("Programs").join("Git")));
         }
         if dirs.is_empty() {
-            // No system Git: only then download a PortableGit into
-            // <mod-root>/.tools/portablegit (same .tools convention as the
-            // build scripts) so recipes still get sh/bash.
+            // No system Git: only then download a PortableGit into the shared
+            // tools dir next to the Kristal engine (<engine-root>/.tools/portablegit,
+            // same .tools convention as the build scripts) so recipes still get
+            // sh/bash. The engine root is resolved the same way the launcher
+            // does it (walk up from the mod root), falling back to the cwd.
             let cwd = std::env::current_dir().unwrap_or_default();
-            let portable = cwd.join(".tools").join("portablegit");
+            let engine_root = launcher::find_engine(&cwd).unwrap_or(cwd);
+            let portable = engine_root.join(".tools").join("portablegit");
             if !git_bash_dirs(&portable).is_empty() || ensure_portable_git(&portable) {
                 dirs.extend(git_bash_dirs(&portable));
             }

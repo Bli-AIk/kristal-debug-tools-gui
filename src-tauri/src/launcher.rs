@@ -229,7 +229,7 @@ fn find_mod_root(dir: &Path) -> Option<PathBuf> {
     }
 }
 
-fn find_engine(dir: &Path) -> Option<PathBuf> {
+pub fn find_engine(dir: &Path) -> Option<PathBuf> {
     let mut cur = dir.to_path_buf();
     loop {
         if cur.join("main.lua").is_file() && cur.join("src").join("kristal.lua").is_file() {
