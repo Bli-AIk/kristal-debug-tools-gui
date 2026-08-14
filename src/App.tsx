@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { IconType } from "react-icons";
-import { FaAndroid, FaBox, FaBroom, FaHammer, FaHeart, FaMobile, FaWindows, FaWrench } from "react-icons/fa6";
+import { FaAndroid, FaBox, FaHammer, FaHeart, FaMobile, FaWindows, FaWrench } from "react-icons/fa6";
 import {
   editForValue,
   effectiveValue,
@@ -18,6 +18,9 @@ const I18N: Record<string, Record<string, string>> = {
   zh: {
     tasks: "运行项列表（高级）", launch: "启动游戏", runs: "运行记录",
     project: "项目信息", system: "系统", libraries: "依赖库", projectBuilds: "项目构建", build: "构建",
+    buildTargetBuild: "桌面端", buildTargetLove: "love文件", buildTargetWin: "Windows可执行程序",
+    buildTargetMod: "mod压缩包", buildTargetAndroid: "安卓", buildTargetAndroidWrap: "安卓套包",
+    cleanBuild: "清理构建",
     initProject: "项目初始化", projectName: "项目名", initBtn: "初始化项目", initConfirm: "再次点击确认",
     initDone: "初始化已在终端窗口启动，完成后建议重启 GUI", initFail: "初始化失败",
     customConfig: "自定义配置", configure: "配置", chapterConfig: "章节预设",
@@ -47,6 +50,9 @@ const I18N: Record<string, Record<string, string>> = {
   en: {
     tasks: "RUN LIST (ADVANCED)", launch: "LAUNCH GAME", runs: "RUNS",
     project: "PROJECT", system: "system", libraries: "libraries", projectBuilds: "PROJECT BUILDS", build: "BUILD",
+    buildTargetBuild: "DESKTOP", buildTargetLove: "LOVE FILE", buildTargetWin: "WINDOWS EXE",
+    buildTargetMod: "MOD PACKAGE", buildTargetAndroid: "ANDROID", buildTargetAndroidWrap: "ANDROID WRAP",
+    cleanBuild: "CLEAN BUILD",
     initProject: "INITIALIZE PROJECT", projectName: "PROJECT NAME", initBtn: "INITIALIZE", initConfirm: "CLICK AGAIN TO CONFIRM",
     initDone: "initialization started in a terminal window — restart the GUI when done", initFail: "init failed",
     customConfig: "CUSTOM CONFIG", configure: "CONFIGURE", chapterConfig: "CHAPTER PRESETS",
@@ -535,7 +541,8 @@ function ProjectPanel({ status, onIcons }: { status: Status | null; onIcons: () 
 
 // The mod's build targets, shown as white icons + captions in a block to the
 // left of the runs log. Keyed by justfile task name; any new build* task gets
-// a wrench fallback so it keeps working without a code change.
+// a wrench fallback so it keeps working without a code change. clean-build is
+// not part of the grid — it lives as a small button in the panel header.
 const BUILD_ICONS: Record<string, IconType> = {
   "build": FaHammer,
   "build-love": FaHeart,
@@ -543,20 +550,35 @@ const BUILD_ICONS: Record<string, IconType> = {
   "build-mod": FaBox,
   "build-android": FaAndroid,
   "build-android-wrap": FaMobile,
-  "clean-build": FaBroom,
 };
-const isBuildTarget = (tk: TaskItem) =>
-  tk.name === "build" || tk.name.startsWith("build-") || tk.name === "clean-build";
+const BUILD_LABELS: Record<string, string> = {
+  "build": "buildTargetBuild",
+  "build-love": "buildTargetLove",
+  "build-win": "buildTargetWin",
+  "build-mod": "buildTargetMod",
+  "build-android": "buildTargetAndroid",
+  "build-android-wrap": "buildTargetAndroidWrap",
+};
+const isGridTarget = (tk: TaskItem) =>
+  tk.name === "build" || tk.name.startsWith("build-");
 
 function BuildPanel({ tasks, onRun }: {
   tasks: TasksResult | null;
   onRun: (task: string, args: string[], justfile: string) => void;
 }) {
-  const builds = tasks?.mod?.tasks.filter(isBuildTarget) ?? [];
-  if (!builds.length) return null;
+  const modTasks = tasks?.mod?.tasks ?? [];
+  const builds = modTasks.filter(isGridTarget);
+  const hasClean = modTasks.some((tk) => tk.name === "clean-build");
+  if (!builds.length && !hasClean) return null;
   return (
     <div className="broken-box panel">
-      <div className="panel-head"><h2>{t("build")}</h2></div>
+      <div className="panel-head">
+        <h2>{t("build")}</h2>
+        {hasClean && (
+          <button className="btn small" title={t("cleanBuild")}
+            onClick={() => onRun("clean-build", [], "project")}>{t("cleanBuild")}</button>
+        )}
+      </div>
       <div className="build-grid">
         {builds.map((tk) => {
           const Icon = BUILD_ICONS[tk.name] ?? FaWrench;
@@ -565,7 +587,9 @@ function BuildPanel({ tasks, onRun }: {
               title={tk.doc ?? tk.name}
               onClick={() => onRun(tk.name, [], "project")}>
               <span className="build-icon"><Icon /></span>
-              <span className="build-label">{tk.name}</span>
+              <span className="build-label">
+                {BUILD_LABELS[tk.name] ? t(BUILD_LABELS[tk.name]) : tk.name}
+              </span>
             </button>
           );
         })}

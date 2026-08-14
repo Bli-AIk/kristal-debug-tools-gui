@@ -251,9 +251,9 @@ a:hover { color: var(--cyan-bright); text-decoration: underline; }
 .chapter-info .ci-sub { font-size: 0.85rem; color: var(--muted); }
 .chapter-info.custom .ci-sub { color: var(--cyan-bright); }
 
-/* Runs log: cap the panel height so the row matches the init panel and
-   scrolls internally instead of growing with the log. */
-.c2r2 { max-height: 220px; }
+/* Runs log: the panel fills its grid cell (same row as the build block), so
+   it matches the build panel's height and scrolls internally instead of
+   growing with the log. */
 .runs-log { overflow-y: auto; min-height: 0; flex: 1; }
 
 /* --- panels: the Deltarune broken border (original SVG drawing) --- */
