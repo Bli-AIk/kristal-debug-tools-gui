@@ -240,38 +240,45 @@ fn mod_id(mod_root: &Path) -> String {
 }
 
 /// Find the love executable: PATH first, then Windows install locations.
+/// On Windows prefer the console build (lovec.exe) so the terminal-cli debug
+/// console (stdin/stdout) can attach; love.exe is a GUI-subsystem binary that
+/// never gets a console.
 pub fn lookup_love() -> Option<PathBuf> {
-    if let Ok(p) = which_love() {
-        return Some(p);
-    }
-    if cfg!(windows) {
-        for dir in [
-            std::env::var("ProgramFiles").unwrap_or_default(),
-            std::env::var("LOCALAPPDATA").unwrap_or_default(),
-        ] {
-            let p = PathBuf::from(&dir).join("LOVE").join("love.exe");
-            if p.is_file() {
-                return Some(p);
-            }
-            let p = PathBuf::from(&dir).join("Programs").join("LOVE").join("love.exe");
-            if p.is_file() {
-                return Some(p);
+    let names: &[&str] = if cfg!(windows) {
+        &["lovec.exe", "love.exe"]
+    } else {
+        &["love"]
+    };
+    for name in names {
+        if let Some(p) = which_love(name) {
+            return Some(p);
+        }
+        if cfg!(windows) {
+            for dir in [
+                std::env::var("ProgramFiles").unwrap_or_default(),
+                std::env::var("LOCALAPPDATA").unwrap_or_default(),
+            ] {
+                let p = PathBuf::from(&dir).join("LOVE").join(name);
+                if p.is_file() {
+                    return Some(p);
+                }
+                let p = PathBuf::from(&dir).join("Programs").join("LOVE").join(name);
+                if p.is_file() {
+                    return Some(p);
+                }
             }
         }
     }
     None
 }
 
-fn which_love() -> Result<PathBuf, std::io::Error> {
+fn which_love(name: &str) -> Option<PathBuf> {
     let path = std::env::var_os("PATH").unwrap_or_default();
     for dir in std::env::split_paths(&path) {
-        let candidate = dir.join(if cfg!(windows) { "love.exe" } else { "love" });
+        let candidate = dir.join(name);
         if candidate.is_file() {
-            return Ok(candidate);
+            return Some(candidate);
         }
     }
-    Err(std::io::Error::new(
-        std::io::ErrorKind::NotFound,
-        "love not found",
-    ))
+    None
 }
