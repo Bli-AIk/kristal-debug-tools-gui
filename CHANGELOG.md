@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.2](https://github.com/Bli-AIk/kristal-debug-tools-gui/compare/v0.1.1...v0.1.2) (2026-08-14)
+
+
+### Bug Fixes
+
+* Windows launch game exits immediately + sidecar never found ([#4](https://github.com/Bli-AIk/kristal-debug-tools-gui/issues/4)) ([45623f2](https://github.com/Bli-AIk/kristal-debug-tools-gui/commit/45623f2b7cd0c271c4eb017ee1490a3851dd5657))
+
 ## [0.1.1](https://github.com/Bli-AIk/kristal-debug-tools-gui/compare/v0.1.0...v0.1.1) (2026-08-13)
 
 
