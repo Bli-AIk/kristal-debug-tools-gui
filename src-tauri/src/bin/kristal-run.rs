@@ -27,11 +27,11 @@ fn prepend_git_bash_to_path() {
         let mut dirs: Vec<PathBuf> = Vec::new();
         for var in ["ProgramFiles", "ProgramFiles(x86)"] {
             if let Some(p) = std::env::var(var).ok() {
-                dirs.extend(git_bash_dirs(PathBuf::from(p).join("Git")));
+                dirs.extend(git_bash_dirs(&PathBuf::from(p).join("Git")));
             }
         }
         if let Some(p) = std::env::var("LOCALAPPDATA").ok() {
-            dirs.extend(git_bash_dirs(PathBuf::from(p).join("Programs").join("Git")));
+            dirs.extend(git_bash_dirs(&PathBuf::from(p).join("Programs").join("Git")));
         }
         if dirs.is_empty() {
             // No system Git: only then download a PortableGit into
