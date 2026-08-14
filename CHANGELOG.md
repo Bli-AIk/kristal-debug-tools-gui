@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.2.0](https://github.com/Bli-AIk/kristal-debug-tools-gui/compare/v0.1.4...v0.2.0) (2026-08-14)
+
+
+### Features
+
+* add a build-targets block next to the runs log ([cf39aed](https://github.com/Bli-AIk/kristal-debug-tools-gui/commit/cf39aeda657e3013bbcf59bf6941d75e57d042ee))
+* equal-height runs log, descriptive build labels, clean-build header button ([e055acd](https://github.com/Bli-AIk/kristal-debug-tools-gui/commit/e055acd3843328bf8516dc40d77c7f803fd1400f))
+
+
+### Bug Fixes
+
+* borrow PathBuf for git_bash_dirs in PortableGit detection ([037f278](https://github.com/Bli-AIk/kristal-debug-tools-gui/commit/037f2784289fbaf205fb44db0f8a61d73b84a5f0))
+* download PortableGit when no system Git Bash exists ([8146d1d](https://github.com/Bli-AIk/kristal-debug-tools-gui/commit/8146d1d089cb92b63ab51e727300ca7f1e819807))
+* strip Windows extended-length path prefix from resolved paths ([b6f42bf](https://github.com/Bli-AIk/kristal-debug-tools-gui/commit/b6f42bf89314d05179872bc90f0fe64ad3692a31))
+* **win:** spawn task terminals with a fresh console in dev builds ([0981e32](https://github.com/Bli-AIk/kristal-debug-tools-gui/commit/0981e3268f53326c300e7d6988e55f6734503d94))
+
+
+### Code Refactoring
+
+* download PortableGit into the shared .tools next to the engine ([eb496db](https://github.com/Bli-AIk/kristal-debug-tools-gui/commit/eb496dbcda269a451837ab2ea16f3a0e952b5cb9))
+
 ## [0.1.4](https://github.com/Bli-AIk/kristal-debug-tools-gui/compare/v0.1.3...v0.1.4) (2026-08-14)
 
 
