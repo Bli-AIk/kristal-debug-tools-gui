@@ -3,7 +3,7 @@
 use crate::{config, launcher, tasks, term};
 use serde_json::{json, Map, Value};
 use std::collections::{BTreeMap, BTreeSet};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tauri::{Manager, State};
 
 pub struct AppState {
@@ -13,24 +13,58 @@ pub struct AppState {
     pub justfile: PathBuf,
 }
 
+/// Candidate sidecar file names, in order: the Tauri externalBin name (dev
+/// build / NSIS installer), then the raw release binary's platform+arch
+/// suffixed name.
+fn sidecar_candidates() -> Vec<String> {
+    let exe = if cfg!(windows) { ".exe" } else { "" };
+    let arch = match std::env::consts::ARCH {
+        "x86_64" => "x64",
+        "aarch64" => "arm64",
+        other => other,
+    };
+    vec![
+        format!("kristal-run{}", exe),
+        format!("kristal-run-{}-{}{}", std::env::consts::OS, arch, exe),
+    ]
+}
+
+/// Look for the bundled kristal-run in `dir`: exact candidate names first,
+/// then any `kristal-run*` file (raw release names drift as the build
+/// matrix grows).
+fn find_sidecar(dir: &Path) -> Option<PathBuf> {
+    for name in sidecar_candidates() {
+        let p = dir.join(&name);
+        if p.is_file() {
+            return Some(p);
+        }
+    }
+    std::fs::read_dir(dir)
+        .ok()?
+        .filter_map(|e| e.ok())
+        .map(|e| e.path())
+        .find(|p| {
+            p.is_file()
+                && p.file_name()
+                    .and_then(|n| n.to_str())
+                    .map_or(false, |n| n.starts_with("kristal-run") && !n.ends_with(".tmp"))
+        })
+}
+
 /// Locate the just runner: the bundled kristal-run sidecar (just compiled
 /// in as a crate) — in the Tauri resource dir (released bundle) or next to
 /// the current exe (dev) — else a system `just` on PATH as a fallback.
 fn just_runner(app: &tauri::AppHandle) -> Option<(PathBuf, tasks::JustSource)> {
     // 1. released bundle: sidecar lands in the resource dir
     if let Ok(dir) = app.path().resource_dir() {
-        for name in ["kristal-run", "kristal-run.exe"] {
-            let p = dir.join(name);
-            if p.is_file() {
-                return Some((p, tasks::JustSource::Embedded));
-            }
+        if let Some(p) = find_sidecar(&dir) {
+            return Some((p, tasks::JustSource::Embedded));
         }
     }
     // 2. dev: next to the current exe (cargo build produces both bins)
     if let Ok(exe) = std::env::current_exe() {
         if let Some(dir) = exe.parent() {
-            let p = dir.join(if cfg!(windows) { "kristal-run.exe" } else { "kristal-run" });
-            if p.is_file() {
+            if let Some(p) = find_sidecar(dir) {
                 return Some((p, tasks::JustSource::Embedded));
             }
         }
@@ -592,5 +626,37 @@ mod tests {
         changes.insert("storageSlots".to_string(), Some(Value::from(12)));
 
         assert_eq!(unknown_change_keys(&defaults, &changes), vec!["enableStorage"]);
+    }
+
+    #[test]
+    fn find_sidecar_matches_platform_suffixed_release_name() {
+        // The raw release binary is named kristal-run-<os>-<arch>[.exe] —
+        // the exact file the old probe (kristal-run / kristal-run.exe) missed.
+        let dir = std::env::temp_dir().join(format!("kdt-sidecar-test-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let exe = if cfg!(windows) { ".exe" } else { "" };
+        let arch = match std::env::consts::ARCH {
+            "x86_64" => "x64",
+            "aarch64" => "arm64",
+            other => other,
+        };
+        let name = format!("kristal-run-{}-{}{}", std::env::consts::OS, arch, exe);
+        std::fs::write(dir.join(&name), b"sidecar").unwrap();
+        let found = super::find_sidecar(&dir);
+        std::fs::remove_dir_all(&dir).unwrap();
+        assert_eq!(
+            found.map(|p| p.file_name().unwrap().to_string_lossy().into_owned()),
+            Some(name)
+        );
+    }
+
+    #[test]
+    fn find_sidecar_ignores_tmp_leftovers() {
+        let dir = std::env::temp_dir().join(format!("kdt-sidecar-tmp-test-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("kristal-run-windows-x64.exe.tmp"), b"partial").unwrap();
+        let found = super::find_sidecar(&dir);
+        std::fs::remove_dir_all(&dir).unwrap();
+        assert!(found.is_none());
     }
 }
