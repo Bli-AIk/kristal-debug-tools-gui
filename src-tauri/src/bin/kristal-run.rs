@@ -11,7 +11,7 @@
 //!   mirroring bin/kristal-run in the library.
 
 use std::ffi::OsString;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use kristal_debug_tools_gui_lib::launcher;
@@ -19,29 +19,29 @@ use kristal_debug_tools_gui_lib::launcher;
 /// Justfile recipes default to shell `sh`; on a stock Windows box no sh is on
 /// PATH, so every recipe dies with "could not find the shell `sh`". System Git
 /// ships a POSIX stack (bin\sh.exe, usr\bin\{sh,bash,rm,unzip,tar,grep}.exe),
-/// so prepend those directories to PATH before just runs.
+/// so prepend those directories to PATH before just runs. When the user has no
+/// Git at all, fall back to a project-local PortableGit downloaded on demand.
 fn prepend_git_bash_to_path() {
     #[cfg(windows)]
     {
-        let exe = ".exe";
         let mut dirs: Vec<PathBuf> = Vec::new();
-        let mut consider = |root: PathBuf| {
-            let bin = root.join("bin");
-            let usrbin = root.join("usr").join("bin");
-            if bin.join(format!("sh{exe}")).is_file() {
-                dirs.push(bin);
-                if usrbin.join(format!("sh{exe}")).is_file() {
-                    dirs.push(usrbin);
-                }
-            }
-        };
         for var in ["ProgramFiles", "ProgramFiles(x86)"] {
             if let Some(p) = std::env::var(var).ok() {
-                consider(PathBuf::from(p).join("Git"));
+                dirs.extend(git_bash_dirs(PathBuf::from(p).join("Git")));
             }
         }
         if let Some(p) = std::env::var("LOCALAPPDATA").ok() {
-            consider(PathBuf::from(p).join("Programs").join("Git"));
+            dirs.extend(git_bash_dirs(PathBuf::from(p).join("Programs").join("Git")));
+        }
+        if dirs.is_empty() {
+            // No system Git: only then download a PortableGit into
+            // <mod-root>/.tools/portablegit (same .tools convention as the
+            // build scripts) so recipes still get sh/bash.
+            let cwd = std::env::current_dir().unwrap_or_default();
+            let portable = cwd.join(".tools").join("portablegit");
+            if !git_bash_dirs(&portable).is_empty() || ensure_portable_git(&portable) {
+                dirs.extend(git_bash_dirs(&portable));
+            }
         }
         if !dirs.is_empty() {
             let prefix = dirs
@@ -55,6 +55,77 @@ fn prepend_git_bash_to_path() {
     }
     // No-op on non-Windows: sh is present everywhere else.
 }
+
+/// `[<root>/bin, <root>/usr/bin]` when <root> is a usable Git Bash install (has
+/// bin\sh.exe); empty otherwise. Written platform-neutral so the Windows logic
+/// still gets type-checked on Linux; the `.exe` probe just never matches there.
+#[cfg_attr(not(windows), allow(dead_code))]
+fn git_bash_dirs(root: &Path) -> Vec<PathBuf> {
+    let mut dirs = Vec::new();
+    let bin = root.join("bin");
+    let usrbin = root.join("usr").join("bin");
+    if bin.join("sh.exe").is_file() {
+        dirs.push(bin);
+        if usrbin.join("sh.exe").is_file() {
+            dirs.push(usrbin);
+        }
+    }
+    dirs
+}
+
+/// Download and self-extract a PortableGit (7z SFX from git-for-windows) into
+/// `root` so just recipes get sh/bash without any system Git. Uses only Windows
+/// built-ins — PowerShell (always present) does the GitHub API lookup, download
+/// and extraction, so no Rust HTTP/archive dependencies are needed. Returns
+/// false on any failure; PATH is simply left alone and just reports its usual
+/// "could not find the shell `sh`".
+#[cfg_attr(not(windows), allow(dead_code))]
+fn ensure_portable_git(root: &Path) -> bool {
+    if !git_bash_dirs(root).is_empty() {
+        return true;
+    }
+    let Some(tmpdir) = std::env::var_os("TEMP")
+        .or_else(|| std::env::var_os("TMP"))
+        .map(PathBuf::from)
+    else {
+        return false;
+    };
+    let sfx = tmpdir.join("kristal-run-PortableGit.7z.exe");
+    let script = tmpdir.join("kristal-run-fetch-portablegit.ps1");
+    let _ = std::fs::write(&script, PORTABLE_GIT_PS);
+    let ok = std::process::Command::new("powershell.exe")
+        .args(["-NoProfile", "-ExecutionPolicy", "Bypass", "-File"])
+        .arg(&script)
+        .arg(&root)
+        .arg(&sfx)
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false);
+    let _ = std::fs::remove_file(&script);
+    if !ok {
+        let _ = std::fs::remove_file(&sfx);
+        return false;
+    }
+    !git_bash_dirs(root).is_empty()
+}
+
+const PORTABLE_GIT_PS: &str = r#"
+param([string]$Root, [string]$Sfx)
+$ErrorActionPreference = 'Stop'
+$ProgressPreference = 'SilentlyContinue'
+try {
+  $rel = Invoke-RestMethod -Uri 'https://api.github.com/repos/git-for-windows/git/releases/latest' -Headers @{ 'User-Agent' = 'kristal-run' }
+  $asset = @($rel.assets | Where-Object { $_.name -match '^PortableGit-.*-64-bit\.7z\.exe$' })[0]
+  if (-not $asset) { exit 2 }
+  Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $Sfx
+  New-Item -ItemType Directory -Force -Path $Root | Out-Null
+  $p = Start-Process -FilePath $Sfx -ArgumentList @('-y', ('-o"' + $Root + '"')) -Wait -PassThru -WindowStyle Hidden
+  exit $p.ExitCode
+} catch {
+  Write-Host $_
+  exit 3
+}
+"#;
 
 const USAGE: &str = "\
 kristal-run — Kristal mod debug launcher
