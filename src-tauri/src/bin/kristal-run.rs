@@ -16,6 +16,46 @@ use std::process::ExitCode;
 
 use kristal_debug_tools_gui_lib::launcher;
 
+/// Justfile recipes default to shell `sh`; on a stock Windows box no sh is on
+/// PATH, so every recipe dies with "could not find the shell `sh`". System Git
+/// ships a POSIX stack (bin\sh.exe, usr\bin\{sh,bash,rm,unzip,tar,grep}.exe),
+/// so prepend those directories to PATH before just runs.
+fn prepend_git_bash_to_path() {
+    #[cfg(windows)]
+    {
+        let exe = ".exe";
+        let mut dirs: Vec<PathBuf> = Vec::new();
+        let mut consider = |root: PathBuf| {
+            let bin = root.join("bin");
+            let usrbin = root.join("usr").join("bin");
+            if bin.join(format!("sh{exe}")).is_file() {
+                dirs.push(bin);
+                if usrbin.join(format!("sh{exe}")).is_file() {
+                    dirs.push(usrbin);
+                }
+            }
+        };
+        for var in ["ProgramFiles", "ProgramFiles(x86)"] {
+            if let Some(p) = std::env::var(var).ok() {
+                consider(PathBuf::from(p).join("Git"));
+            }
+        }
+        if let Some(p) = std::env::var("LOCALAPPDATA").ok() {
+            consider(PathBuf::from(p).join("Programs").join("Git"));
+        }
+        if !dirs.is_empty() {
+            let prefix = dirs
+                .iter()
+                .map(|d| d.to_string_lossy().into_owned())
+                .collect::<Vec<_>>()
+                .join(";");
+            let old = std::env::var("PATH").unwrap_or_default();
+            std::env::set_var("PATH", format!("{prefix};{old}"));
+        }
+    }
+    // No-op on non-Windows: sh is present everywhere else.
+}
+
 const USAGE: &str = "\
 kristal-run — Kristal mod debug launcher
 
@@ -55,6 +95,7 @@ fn main() -> ExitCode {
                 task.into(),
             ];
             args.extend(argv[4..].iter().map(OsString::from));
+            prepend_git_bash_to_path();
             just_run(args)
         }
         Some("just-dump") => {

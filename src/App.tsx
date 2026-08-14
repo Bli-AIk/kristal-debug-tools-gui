@@ -23,7 +23,7 @@ const I18N: Record<string, Record<string, string>> = {
     basedOnChapter: "基于 Ch.{chapter} 的自定义", chapterSaved: "章节预设已保存", overridesSaved: "章节预设与自定义覆盖已保存",
     fLang: "语言", fEncounter: "遭遇", fWave: "波次", fWaveForce: "强制波次",
     fTp: "初始 TP", fMercy: "初始 mercy", fExtra: "额外参数",
-    love: "love", engine: "引擎", mod: "模组", just: "just", justEmbedded: "内置 (just crate)",
+    love: "love", engine: "引擎", mod: "模组", just: "just",
     loveMissing: "未找到 love（请安装 LÖVE 并加入 PATH）",
     noEngine: "未找到 Kristal 引擎", noMod: "未找到 mod", justNone: "不可用",
     empty: "（空）", noTasks: "没有可运行的任务",
@@ -52,7 +52,7 @@ const I18N: Record<string, Record<string, string>> = {
     basedOnChapter: "customized from Ch.{chapter}", chapterSaved: "chapter preset saved", overridesSaved: "chapter preset and overrides saved",
     fLang: "LANGUAGE", fEncounter: "ENCOUNTER", fWave: "WAVE", fWaveForce: "WAVE FORCE",
     fTp: "TP", fMercy: "MERCY", fExtra: "EXTRA ARGS",
-    love: "love", engine: "engine", mod: "mod", just: "just", justEmbedded: "builtin (just crate)",
+    love: "love", engine: "engine", mod: "mod", just: "just",
     loveMissing: "love not found (install LÖVE and add it to PATH)",
     noEngine: "Kristal engine not found", noMod: "mod not found", justNone: "unavailable",
     empty: "(empty)", noTasks: "no runnable tasks",
@@ -294,9 +294,6 @@ function StatusBar({ status }: { status: Status | null }) {
   const engineTag = status.engineRoot
     ? `${status.engineRoot}${status.engine?.version ? ` (${status.engine.version}${status.engine.hash ? " @ " + status.engine.hash : ""})` : ""}`
     : t("noEngine");
-  const justTag = status.just.mode === "embedded"
-    ? t("justEmbedded")
-    : status.just.found ? status.just.path : t("justNone");
   return (
     <>
       <span className={status.love.found ? "" : "bad"}>
@@ -304,7 +301,9 @@ function StatusBar({ status }: { status: Status | null }) {
       </span>
       <span className={status.engineRoot ? "" : "bad"}>{t("engine")}: {engineTag}</span>
       <span className={status.modRoot ? "" : "bad"}>{t("mod")}: {status.modRoot || t("noMod")}</span>
-      <span className={status.just.found ? "" : "bad"}>{t("just")}: {justTag}</span>
+      {status.just.mode !== "embedded" && (
+        <span className={status.just.found ? "" : "bad"}>{t("just")}: {status.just.found ? status.just.path : t("justNone")}</span>
+      )}
       <span>{t("system")}: {status.os} {status.arch}</span>
     </>
   );
