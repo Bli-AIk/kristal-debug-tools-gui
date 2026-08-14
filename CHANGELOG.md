@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.4](https://github.com/Bli-AIk/kristal-debug-tools-gui/compare/v0.1.3...v0.1.4) (2026-08-14)
+
+
+### Bug Fixes
+
+* run just tasks on Windows without sh on PATH ([74fb561](https://github.com/Bli-AIk/kristal-debug-tools-gui/commit/74fb5618199b72d986d12c891b2e544e7e261e5e))
+
 ## [0.1.3](https://github.com/Bli-AIk/kristal-debug-tools-gui/compare/v0.1.2...v0.1.3) (2026-08-14)
 
 
