@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.2.0](https://github.com/Bli-AIk/kristal-debug-tools-gui/compare/v0.1.4...v0.2.0) (2026-08-14)
+## [0.1.5](https://github.com/Bli-AIk/kristal-debug-tools-gui/compare/v0.1.4...v0.1.5) (2026-08-14)
 
 
 ### Features
