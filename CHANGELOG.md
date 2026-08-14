@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.3](https://github.com/Bli-AIk/kristal-debug-tools-gui/compare/v0.1.2...v0.1.3) (2026-08-14)
+
+
+### Bug Fixes
+
+* prefer lovec on Windows so the game console can attach ([#6](https://github.com/Bli-AIk/kristal-debug-tools-gui/issues/6)) ([e457513](https://github.com/Bli-AIk/kristal-debug-tools-gui/commit/e4575134bb8b57b0b71feb58b1725ecbfd1694da))
+
 ## [0.1.2](https://github.com/Bli-AIk/kristal-debug-tools-gui/compare/v0.1.1...v0.1.2) (2026-08-14)
 
 
