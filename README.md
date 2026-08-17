@@ -10,15 +10,21 @@
 
 技术栈：Tauri v2 + React + TypeScript。游戏启动是 `bin/kristal-run` 的 Rust 移植（`src-tauri/src/launcher.rs`）。
 
+## Kristal Version Support
+
+| `kristal`                                                                                                                  | `kristal-debug-tools-gui` |
+| -------------------------------------------------------------------------------------------------------------------------- | ------------------------- |
+| [v0.10.0](https://github.com/KristalTeam/Kristal/commit/752bc0688ba97ca8a256ba9125b7e05a1ca6edbd) (`752bc068`, 2026-06-23) | 0.1.5                     |
+
 ## 最终用户：一键运行（零工具链）
 
 Windows / Linux 都只需要 **LÖVE 装好并进 PATH**（Git Bash 进 PATH 后构建任务也能跑）。不需要 just、Rust、Node。
 
-| 方式 | 说明 |
-|---|---|
-| 下载 Release | 去 [Releases](https://github.com/Bli-AIk/kristal-debug-tools-gui/releases) 拿对应架构（x64/arm64）的裸二进制，双击运行 |
-| `just gui` | mod 里 `just --justfile libraries/kristal-debug-tools/justfile gui`，首次自动下载最新 release 到 `.tools/gui/`（SHA256 校验），之后直接跑 |
-| `gui.cmd` | 库目录里双击 `gui.cmd`（Windows），逻辑同上 |
+| 方式         | 说明                                                                                                                                      |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| 下载 Release | 去 [Releases](https://github.com/Bli-AIk/kristal-debug-tools-gui/releases) 拿对应架构（x64/arm64）的裸二进制，双击运行                    |
+| `just gui`   | mod 里 `just --justfile libraries/kristal-debug-tools/justfile gui`，首次自动下载最新 release 到 `.tools/gui/`（SHA256 校验），之后直接跑 |
+| `gui.cmd`    | 库目录里双击 `gui.cmd`（Windows），逻辑同上                                                                                               |
 
 运行前自动检测：
 
