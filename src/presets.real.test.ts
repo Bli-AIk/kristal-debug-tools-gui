@@ -25,9 +25,11 @@ describe("real chapter option catalog", () => {
         "2": { label: "是", value: true },
         "3": { label: "是", value: true },
         "4": { label: "是", value: true },
+        "5": { label: "是", value: true },
       },
     };
     expect(isCustom(item, {})).toBe(true);
     expect(effectiveValue(item, 4, {})).toBe(false);
+    expect(effectiveValue(item, 5, {})).toBe(false);
   });
 });

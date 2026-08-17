@@ -52,6 +52,21 @@ export function effectiveValue(item: PresetItem, chapter: number, edits: Edits):
 }
 
 /**
+ * Return the target chapter's value when it differs from the saved value.
+ * Explicit overrides and staged edits already represent the value the user
+ * intends to keep, so they suppress the baseline preview.
+ */
+export function previewDiff(
+  item: PresetItem,
+  targetChapter: number,
+  edits: Edits = {},
+): PresetValue | undefined {
+  if (item.isOverride || hasEdit(edits, item.key)) return undefined;
+  const target = chapterDefault(item, targetChapter);
+  return sameValue(item.current.value, target.value) ? undefined : target;
+}
+
+/**
  * Compute the edit required to show `value` against `chapter`'s baseline.
  *
  * Once an item has a staged user override, clicking any value only changes

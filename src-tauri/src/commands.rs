@@ -45,9 +45,9 @@ fn find_sidecar(dir: &Path) -> Option<PathBuf> {
         .map(|e| e.path())
         .find(|p| {
             p.is_file()
-                && p.file_name()
-                    .and_then(|n| n.to_str())
-                    .map_or(false, |n| n.starts_with("kristal-run") && !n.ends_with(".tmp"))
+                && p.file_name().and_then(|n| n.to_str()).map_or(false, |n| {
+                    n.starts_with("kristal-run") && !n.ends_with(".tmp")
+                })
         })
 }
 
@@ -82,9 +82,12 @@ fn just_runner(app: &tauri::AppHandle) -> Option<(PathBuf, tasks::JustSource)> {
 /// scripts: <mod-root>/.tools/gui/settings.json
 /// { lang, scale, keepOpen }
 fn settings_file(state: &AppState) -> PathBuf {
-    state.mod_root.join(".tools").join("gui").join("settings.json")
+    state
+        .mod_root
+        .join(".tools")
+        .join("gui")
+        .join("settings.json")
 }
-
 
 /// Label text without JSON quoting: "Money" -> Money; booleans and null
 /// use the semantic Chinese labels shown by the option controls.
@@ -97,7 +100,6 @@ fn label_str(v: &Value) -> String {
         other => other.to_string(),
     }
 }
-
 
 fn read_settings(state: &AppState) -> Value {
     std::fs::read_to_string(settings_file(state))
@@ -173,9 +175,14 @@ pub struct RunTaskArgs {
 }
 
 #[tauri::command]
-pub fn run_task(app: tauri::AppHandle, state: State<AppState>, req: RunTaskArgs) -> Result<Value, String> {
+pub fn run_task(
+    app: tauri::AppHandle,
+    state: State<AppState>,
+    req: RunTaskArgs,
+) -> Result<Value, String> {
     let (runner, _) = just_runner(&app).ok_or_else(|| {
-        "just runner unavailable (neither the bundled sidecar nor a system just was found)".to_string()
+        "just runner unavailable (neither the bundled sidecar nor a system just was found)"
+            .to_string()
     })?;
     let justfile = if req.justfile == "project" {
         let p = state.mod_root.join("justfile");
@@ -259,18 +266,19 @@ pub fn chapter_config(state: State<AppState>) -> Value {
     chapter_config_view(&defaults, &overrides, &features, chapter)
 }
 
-/// Build the chapter-config view. The selectable key set is the union of
-/// the four real engine `configs/chapterN.json` files; config-features.json
-/// only supplies copy and extra option labels.
+/// Build the chapter-config view. The selectable key set and available
+/// chapters come from the engine's `configs/chapterN.json` files;
+/// config-features.json only supplies copy and extra option labels.
 fn chapter_config_view(
-    defaults: &[Map<String, Value>],
+    defaults: &BTreeMap<i64, Map<String, Value>>,
     overrides: &Map<String, Value>,
     features: &BTreeMap<String, BTreeMap<String, Value>>,
     chapter: i64,
 ) -> Value {
+    let chapters: Vec<i64> = defaults.keys().copied().collect();
 
     let mut keys: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
-    for m in defaults {
+    for m in defaults.values() {
         keys.extend(m.keys().cloned());
     }
 
@@ -280,11 +288,10 @@ fn chapter_config_view(
             let frow = features.get(&k);
             let mut options: Vec<(String, Value)> = Vec::new();
             let label_for = |raw: &Value| -> String {
-                // The feature table only has old ch1/ch2 labels for some
-                // options. Match labels by raw value instead of carrying a
-                // ch1 label into chapters 3/4 with a different default.
-                for ch in 1..=4 {
-                    if defaults.get(ch - 1).and_then(|m| m.get(&k)) == Some(raw) {
+                // Match labels by raw value instead of carrying an old
+                // chapter's label into a newer chapter with a new default.
+                for (ch, values) in defaults {
+                    if values.get(&k) == Some(raw) {
                         if let Some(label) = frow
                             .and_then(|f| f.get(&ch.to_string()))
                             .and_then(|v| v.as_str())
@@ -299,8 +306,8 @@ fn chapter_config_view(
             // All native chapter defaults are valid choices. Add the menu's
             // declared alternatives too, because several defaults happen to
             // be identical across every chapter.
-            for ch in 1..=4 {
-                if let Some(raw) = defaults.get(ch - 1).and_then(|m| m.get(&k)) {
+            for values in defaults.values() {
+                if let Some(raw) = values.get(&k) {
                     if !options.iter().any(|(_, value)| value == raw) {
                         options.push((label_for(raw), raw.clone()));
                     }
@@ -333,7 +340,7 @@ fn chapter_config_view(
                 }
                 None => {
                     let raw = defaults
-                        .get(chapter.saturating_sub(1) as usize)
+                        .get(&chapter)
                         .and_then(|m| m.get(&k))
                         .cloned()
                         .unwrap_or(Value::Null);
@@ -342,11 +349,11 @@ fn chapter_config_view(
                 }
             };
 
-            let ch_values: Map<String, Value> = (1..=4)
-                .map(|ch| {
-                    let raw = defaults
-                        .get(ch - 1)
-                        .and_then(|m| m.get(&k))
+            let ch_values: Map<String, Value> = defaults
+                .iter()
+                .map(|(ch, values)| {
+                    let raw = values
+                        .get(&k)
                         .cloned()
                         .unwrap_or(Value::Null);
                     let label = label_for(&raw);
@@ -367,7 +374,7 @@ fn chapter_config_view(
         })
         .collect();
 
-    json!({ "chapter": chapter, "items": items })
+    json!({ "chapter": chapter, "chapters": chapters, "items": items })
 }
 
 #[derive(serde::Deserialize)]
@@ -380,14 +387,18 @@ pub struct ChapterConfigSaveArgs {
 fn valid_config_key(key: &str) -> bool {
     !key.is_empty()
         && key.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
-        && !key.chars().next().map(|c| c.is_ascii_digit()).unwrap_or(true)
+        && !key
+            .chars()
+            .next()
+            .map(|c| c.is_ascii_digit())
+            .unwrap_or(true)
 }
 
 fn unknown_change_keys(
-    defaults: &[Map<String, Value>],
+    defaults: &BTreeMap<i64, Map<String, Value>>,
     changes: &BTreeMap<String, Option<Value>>,
 ) -> Vec<String> {
-    let valid: BTreeSet<String> = defaults.iter().flat_map(|m| m.keys().cloned()).collect();
+    let valid: BTreeSet<String> = defaults.values().flat_map(|m| m.keys().cloned()).collect();
     changes
         .keys()
         .filter(|key| !valid.contains(*key))
@@ -396,16 +407,31 @@ fn unknown_change_keys(
 }
 
 #[tauri::command]
-pub fn chapter_config_save(state: State<AppState>, req: ChapterConfigSaveArgs) -> Result<Value, String> {
-    if !(1..=4).contains(&req.chapter) {
-        return Err("chapter must be 1-4".into());
+pub fn chapter_config_save(
+    state: State<AppState>,
+    req: ChapterConfigSaveArgs,
+) -> Result<Value, String> {
+    let defaults = config::chapter_defaults(&state.engine_root);
+    if defaults.is_empty() {
+        return Err("no chapter presets found in the engine configs directory".into());
+    }
+    if !defaults.contains_key(&req.chapter) {
+        let chapters = defaults
+            .keys()
+            .map(|chapter| chapter.to_string())
+            .collect::<Vec<_>>()
+            .join(", ");
+        return Err(format!("chapter must be one of: {}", chapters));
     }
     if req.changes.keys().any(|key| !valid_config_key(key)) {
         return Err("invalid config key".into());
     }
-    let unknown = unknown_change_keys(&config::chapter_defaults(&state.engine_root), &req.changes);
+    let unknown = unknown_change_keys(&defaults, &req.changes);
     if !unknown.is_empty() {
-        return Err(format!("unknown chapter config key: {}", unknown.join(", ")));
+        return Err(format!(
+            "unknown chapter config key: {}",
+            unknown.join(", ")
+        ));
     }
 
     config::mod_chapter_config_save(&state.mod_root, req.chapter, &req.changes)?;
@@ -426,14 +452,20 @@ pub fn template_init(state: State<AppState>, req: TemplateInitArgs) -> Result<Va
             .chars()
             .all(|c| c.is_alphanumeric() || c == ' ' || c == '_' || c == '-');
     if !valid {
-        return Err("invalid project name (letters, digits, space, dash, underscore; max 64)".into());
+        return Err(
+            "invalid project name (letters, digits, space, dash, underscore; max 64)".into(),
+        );
     }
     if config::detect_template(&state.mod_root).is_none() {
         return Err("not a thrash-machine template".into());
     }
     let argv = vec![
         "bash".into(),
-        state.mod_root.join("start.sh").to_string_lossy().into_owned(),
+        state
+            .mod_root
+            .join("start.sh")
+            .to_string_lossy()
+            .into_owned(),
         "--name".into(),
         req.name,
     ];
@@ -456,7 +488,7 @@ fn _unused(_: &PathBuf) {}
 mod tests {
     use super::*;
 
-    /// Union of the real engine configs/chapter1..4.json keys (47 keys).
+    /// Union of the real engine configs/chapter1..5.json keys (47 keys).
     const REAL_DEFAULT_KEYS: &[&str] = &[
         "awakeMessages",
         "canTossLightWeapons",
@@ -507,15 +539,18 @@ mod tests {
         "tpName",
     ];
 
-    /// Build four chapter-default maps. Every real key is present; keys not
+    /// Build five chapter-default maps. Every real key is present; keys not
     /// in `rows` default to null so the key set still exercises the union.
-    fn defaults_for(rows: &[(&str, Value, Value, Value, Value)]) -> Vec<Map<String, Value>> {
-        let mut maps: Vec<Map<String, Value>> = (0..4).map(|_| Map::new()).collect();
-        for (key, ch1, ch2, ch3, ch4) in rows {
+    fn defaults_for(
+        rows: &[(&str, Value, Value, Value, Value, Value)],
+    ) -> BTreeMap<i64, Map<String, Value>> {
+        let mut maps: Vec<Map<String, Value>> = (0..5).map(|_| Map::new()).collect();
+        for (key, ch1, ch2, ch3, ch4, ch5) in rows {
             maps[0].insert(key.to_string(), ch1.clone());
             maps[1].insert(key.to_string(), ch2.clone());
             maps[2].insert(key.to_string(), ch3.clone());
             maps[3].insert(key.to_string(), ch4.clone());
+            maps[4].insert(key.to_string(), ch5.clone());
         }
         for key in REAL_DEFAULT_KEYS {
             for map in &mut maps {
@@ -524,7 +559,10 @@ mod tests {
                 }
             }
         }
-        maps
+        maps.into_iter()
+            .enumerate()
+            .map(|(index, map)| ((index + 1) as i64, map))
+            .collect()
     }
 
     fn item<'a>(view: &'a Value, key: &str) -> &'a Value {
@@ -562,6 +600,7 @@ mod tests {
             Value::Bool(true),
             Value::Bool(true),
             Value::Bool(true),
+            Value::Bool(true),
         )]);
         let mut overrides = Map::new();
         overrides.insert("enemyAuras".to_string(), Value::Bool(false));
@@ -583,10 +622,12 @@ mod tests {
                 Value::Bool(true),
                 Value::Bool(true),
                 Value::Bool(false),
+                Value::Bool(true),
             ),
             (
                 "growStrongerChara",
                 Value::Null,
+                Value::String("noelle".into()),
                 Value::String("noelle".into()),
                 Value::String("noelle".into()),
                 Value::String("noelle".into()),
@@ -620,12 +661,43 @@ mod tests {
             Value::from(24),
             Value::from(24),
             Value::from(36),
+            Value::from(48),
         )]);
         let mut changes = BTreeMap::new();
         changes.insert("enableStorage".to_string(), Some(Value::Bool(false)));
         changes.insert("storageSlots".to_string(), Some(Value::from(12)));
 
-        assert_eq!(unknown_change_keys(&defaults, &changes), vec!["enableStorage"]);
+        assert_eq!(
+            unknown_change_keys(&defaults, &changes),
+            vec!["enableStorage"]
+        );
+    }
+
+    #[test]
+    fn chapter_five_values_and_selector_come_from_engine_defaults() {
+        let defaults = defaults_for(&[
+            (
+                "storageSlots",
+                Value::from(0),
+                Value::from(24),
+                Value::from(24),
+                Value::from(36),
+                Value::from(48),
+            ),
+            (
+                "newChoicers",
+                Value::Bool(false),
+                Value::Bool(false),
+                Value::Bool(false),
+                Value::Bool(false),
+                Value::Bool(true),
+            ),
+        ]);
+        let view = chapter_config_view(&defaults, &Map::new(), &BTreeMap::new(), 5);
+
+        assert_eq!(view["chapters"], json!([1, 2, 3, 4, 5]));
+        assert_eq!(item(&view, "storageSlots")["current"]["value"], 48);
+        assert_eq!(item(&view, "newChoicers")["current"]["value"], true);
     }
 
     #[test]

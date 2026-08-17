@@ -330,7 +330,8 @@ details.broken-box summary:hover::after { color: var(--yellow); }
 /* While previewing (a pending button exists), the green applied state
    dims so the yellow preview stands out — chapter bar and option rows. */
 .chapter-buttons:has(.btn.pending) .btn.applied,
-.cc-control:has(.btn.pending) .btn.applied { color: #2f7d32; border-color: #2f7d32; }
+.cc-control:has(.btn.pending) .btn.applied,
+.cc-control.preset-diff .btn.applied { color: #2f7d32; border-color: #2f7d32; }
 .btn:disabled { opacity: 0.4; cursor: default; }
 .btn:disabled:hover { color: var(--text); border-color: var(--text); }
 
@@ -490,6 +491,23 @@ input:focus, select:focus { outline: none; border-color: var(--yellow); }
 .cc-value { color: var(--dim); }
 .cc-value.custom { color: var(--cyan-bright); }
 .cc-value.pending { color: var(--yellow); }
+.cc-value.preset-diff { color: #2f7d32; }
+/* Chapter preview: keep the saved control dark green and show the target
+   chapter's default beside it in yellow. */
+.cc-control.preset-diff .cc-select,
+.cc-control.preset-diff .cc-edit {
+  color: #2f7d32;
+  border-color: #2f7d32;
+}
+.cc-preview {
+  background: #000;
+  color: var(--yellow);
+  border: 2px solid var(--yellow);
+  padding: 0.2em 0.5em;
+  font-size: 0.85rem;
+  font-family: inherit;
+  white-space: nowrap;
+}
 .cc-edit {
   background: #000;
   color: var(--text);
@@ -684,4 +702,3 @@ input:focus, select:focus { outline: none; border-color: var(--yellow); }
   justify-content: center;
 }
 .icon-actions .btn { flex: 1 1 auto; }
-

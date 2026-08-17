@@ -21,8 +21,14 @@ pub fn mod_name_subtitle(mod_root: &Path) -> (String, String) {
         return (String::new(), String::new());
     };
     (
-        v.get("name").and_then(|x| x.as_str()).unwrap_or("").to_string(),
-        v.get("subtitle").and_then(|x| x.as_str()).unwrap_or("").to_string(),
+        v.get("name")
+            .and_then(|x| x.as_str())
+            .unwrap_or("")
+            .to_string(),
+        v.get("subtitle")
+            .and_then(|x| x.as_str())
+            .unwrap_or("")
+            .to_string(),
     )
 }
 
@@ -49,20 +55,46 @@ pub fn current_chapter(mod_root: &Path) -> i64 {
         .unwrap_or(2)
 }
 
-/// Chapter defaults from the engine's configs/chapterN.json.
-pub fn chapter_defaults(engine_root: &Path) -> Vec<Map<String, Value>> {
-    let mut out = Vec::new();
-    for n in 1..=4 {
-        let mut m = Map::new();
-        if let Ok(text) = std::fs::read_to_string(engine_root.join("configs").join(format!("chapter{}.json", n))) {
-            if let Some(v) = parse_jsonc_value(&text) {
-                if let Some(obj) = v.as_object() {
-                    m = obj.clone();
-                }
-            }
+/// Chapter defaults discovered from the engine's configs/chapterN.json files.
+///
+/// The engine owns these baselines. Keeping their numeric keys rather than
+/// indexing a fixed vector lets the GUI support new chapters without a release.
+pub fn chapter_defaults(engine_root: &Path) -> BTreeMap<i64, Map<String, Value>> {
+    let mut out = BTreeMap::new();
+    let Ok(entries) = std::fs::read_dir(engine_root.join("configs")) else {
+        return out;
+    };
+
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if !path.is_file() {
+            continue;
         }
-        out.push(m);
+        let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
+            continue;
+        };
+        let Some(number) = name
+            .strip_prefix("chapter")
+            .and_then(|name| name.strip_suffix(".json"))
+            .and_then(|number| number.parse::<i64>().ok())
+        else {
+            continue;
+        };
+        if number < 1 {
+            continue;
+        }
+        let Ok(text) = std::fs::read_to_string(&path) else {
+            continue;
+        };
+        let Some(value) = parse_jsonc_value(&text) else {
+            continue;
+        };
+        let Some(defaults) = value.as_object() else {
+            continue;
+        };
+        out.insert(number, defaults.clone());
     }
+
     out
 }
 
@@ -125,8 +157,14 @@ fn git_head_mod_json(mod_root: &Path) -> Option<(String, String)> {
     let text = String::from_utf8_lossy(&out.stdout);
     let v = parse_jsonc_value(&text)?;
     Some((
-        v.get("id").and_then(|x| x.as_str()).unwrap_or("").to_string(),
-        v.get("name").and_then(|x| x.as_str()).unwrap_or("").to_string(),
+        v.get("id")
+            .and_then(|x| x.as_str())
+            .unwrap_or("")
+            .to_string(),
+        v.get("name")
+            .and_then(|x| x.as_str())
+            .unwrap_or("")
+            .to_string(),
     ))
 }
 
@@ -268,12 +306,20 @@ pub fn libraries(mod_root: &Path) -> Vec<serde_json::Value> {
             }
         }
     }
-    out.sort_by(|a, b| a["id"].as_str().unwrap_or("").cmp(b["id"].as_str().unwrap_or("")));
+    out.sort_by(|a, b| {
+        a["id"]
+            .as_str()
+            .unwrap_or("")
+            .cmp(b["id"].as_str().unwrap_or(""))
+    });
     out
 }
 
 pub fn find_justfile(mod_root: &Path) -> Option<PathBuf> {
-    let p = mod_root.join("libraries").join("kristal-debug-tools").join("justfile");
+    let p = mod_root
+        .join("libraries")
+        .join("kristal-debug-tools")
+        .join("justfile");
     if p.is_file() {
         Some(p)
     } else {
@@ -302,6 +348,33 @@ mod tests {
         let mut changes = BTreeMap::new();
         changes.insert(key.to_string(), value);
         changes
+    }
+
+    #[test]
+    fn chapter_defaults_discovers_numbered_engine_configs() {
+        let root =
+            std::env::temp_dir().join(format!("kdt-chapter-defaults-{}", std::process::id()));
+        let configs = root.join("configs");
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&configs).unwrap();
+        std::fs::write(configs.join("chapter2.json"), "{\"storageSlots\": 24}").unwrap();
+        std::fs::write(
+            configs.join("chapter5.json"),
+            "{\"storageSlots\": 48, \"newChoicers\": true}",
+        )
+        .unwrap();
+        std::fs::write(configs.join("chapter20.json"), "{\"future\": true}").unwrap();
+        std::fs::write(configs.join("chapter0.json"), "{\"ignored\": true}").unwrap();
+        std::fs::write(configs.join("chapterbad.json"), "{\"ignored\": true}").unwrap();
+        std::fs::write(configs.join("chapter7.json"), "not jsonc").unwrap();
+
+        let defaults = chapter_defaults(&root);
+        let chapters: Vec<i64> = defaults.keys().copied().collect();
+        let _ = std::fs::remove_dir_all(&root);
+
+        assert_eq!(chapters, vec![2, 5, 20]);
+        assert_eq!(defaults[&5]["storageSlots"], 48);
+        assert_eq!(defaults[&5]["newChoicers"], true);
     }
 
     #[test]
@@ -336,7 +409,9 @@ mod tests {
     #[test]
     fn add_to_a_compact_empty_object_keeps_valid_jsonc() {
         let text = r#"{"chapter": 1, "config": {"kristal": {}}}"#;
-        let out = apply_chapter_config_text(text, 3, &change("enemyAuras", Some(Value::Bool(true)))).unwrap();
+        let out =
+            apply_chapter_config_text(text, 3, &change("enemyAuras", Some(Value::Bool(true))))
+                .unwrap();
         let parsed = parse_jsonc_value(&out).unwrap();
 
         assert_eq!(parsed["chapter"], 3);
@@ -346,7 +421,9 @@ mod tests {
     #[test]
     fn missing_config_block_is_created_for_an_override() {
         let text = r#"{"chapter": 1}"#;
-        let out = apply_chapter_config_text(text, 1, &change("enemyAuras", Some(Value::Bool(false)))).unwrap();
+        let out =
+            apply_chapter_config_text(text, 1, &change("enemyAuras", Some(Value::Bool(false))))
+                .unwrap();
         let parsed = parse_jsonc_value(&out).unwrap();
 
         assert_eq!(parsed["config"]["kristal"]["enemyAuras"], false);
@@ -357,23 +434,23 @@ mod tests {
         let out = apply_chapter_config_text(r#"{"chapter": 1}"#, 3, &BTreeMap::new()).unwrap();
         assert!(!out.contains("\"config\""));
 
-        let out = apply_chapter_config_text(
-            r#"{"chapter": 1}"#,
-            3,
-            &change("enemyAuras", None),
-        )
-        .unwrap();
+        let out =
+            apply_chapter_config_text(r#"{"chapter": 1}"#, 3, &change("enemyAuras", None)).unwrap();
         assert!(!out.contains("\"config\""));
     }
 
     #[test]
     fn wrong_config_types_are_rejected_when_writing() {
         let text = r#"{"chapter": 1, "config": []}"#;
-        let err = apply_chapter_config_text(text, 1, &change("enemyAuras", Some(Value::Bool(true)))).unwrap_err();
+        let err =
+            apply_chapter_config_text(text, 1, &change("enemyAuras", Some(Value::Bool(true))))
+                .unwrap_err();
         assert!(err.contains("`config` must be a JSON object"));
 
         let text = r#"{"chapter": 1, "config": {"kristal": []}}"#;
-        let err = apply_chapter_config_text(text, 1, &change("enemyAuras", Some(Value::Bool(true)))).unwrap_err();
+        let err =
+            apply_chapter_config_text(text, 1, &change("enemyAuras", Some(Value::Bool(true))))
+                .unwrap_err();
         assert!(err.contains("`kristal` must be a JSON object"));
     }
 
@@ -411,7 +488,9 @@ mod tests {
         }
     }
 }"#;
-        let out = apply_chapter_config_text(text, 4, &change("enemyAuras", Some(Value::Bool(false)))).unwrap();
+        let out =
+            apply_chapter_config_text(text, 4, &change("enemyAuras", Some(Value::Bool(false))))
+                .unwrap();
         let parsed = parse_jsonc_value(&out).unwrap();
 
         assert_eq!(parsed["config"]["kristal"]["enemyAuras"], false);
@@ -428,7 +507,12 @@ mod tests {
         }
     }
 }"#;
-        let out = apply_chapter_config_text(text, 4, &change("darkCandyForm", Some(Value::String("darker".into())))).unwrap();
+        let out = apply_chapter_config_text(
+            text,
+            4,
+            &change("darkCandyForm", Some(Value::String("darker".into()))),
+        )
+        .unwrap();
         assert!(out.contains("\"darkCandyForm\": \"darker\","));
         assert!(parse_jsonc_value(&out).is_some());
     }

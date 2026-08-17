@@ -13,7 +13,8 @@ const DESCS_JSON: &str = include_str!("../resources/config-features.json");
 /// Normalize a language name to one of "zh" | "en" | "default".
 fn lang_alias(lang: &str) -> &'static str {
     match lang {
-        "zh" | "zh_hans" | "zh-hans" | "zh_cn" | "zh-cn" | "zh_hant" | "zh-hant" | "zh_tw" | "zh-tw" => "zh",
+        "zh" | "zh_hans" | "zh-hans" | "zh_cn" | "zh-cn" | "zh_hant" | "zh-hant" | "zh_tw"
+        | "zh-tw" => "zh",
         "en" => "en",
         _ => "default",
     }
@@ -27,25 +28,35 @@ fn parse_doc_comments(text: &str) -> HashMap<String, HashMap<String, String>> {
     let mut out: HashMap<String, HashMap<String, String>> = HashMap::new();
     let mut block: Vec<String> = Vec::new();
 
-    let commit = |block: &Vec<String>, out: &mut HashMap<String, HashMap<String, String>>, name: &str| {
-        let mut map = HashMap::new();
-        for line in block {
-            if let Some((lang, doc)) = line.split_once(':') {
-                let lang = lang.trim();
-                if matches!(
-                    lang,
-                    "en" | "zh" | "zh_hans" | "zh-hans" | "zh_cn" | "zh-cn" | "zh_hant" | "zh-hant" | "zh_tw" | "zh-tw"
-                ) {
-                    map.insert(lang_alias(lang).to_string(), doc.trim().to_string());
-                    continue;
+    let commit =
+        |block: &Vec<String>, out: &mut HashMap<String, HashMap<String, String>>, name: &str| {
+            let mut map = HashMap::new();
+            for line in block {
+                if let Some((lang, doc)) = line.split_once(':') {
+                    let lang = lang.trim();
+                    if matches!(
+                        lang,
+                        "en" | "zh"
+                            | "zh_hans"
+                            | "zh-hans"
+                            | "zh_cn"
+                            | "zh-cn"
+                            | "zh_hant"
+                            | "zh-hant"
+                            | "zh_tw"
+                            | "zh-tw"
+                    ) {
+                        map.insert(lang_alias(lang).to_string(), doc.trim().to_string());
+                        continue;
+                    }
                 }
+                map.entry("default".to_string())
+                    .or_insert_with(|| line.trim().to_string());
             }
-            map.entry("default".to_string()).or_insert_with(|| line.trim().to_string());
-        }
-        if !map.is_empty() {
-            out.insert(name.to_string(), map);
-        }
-    };
+            if !map.is_empty() {
+                out.insert(name.to_string(), map);
+            }
+        };
 
     for line in text.lines() {
         let t = line.trim_start();
@@ -57,8 +68,14 @@ fn parse_doc_comments(text: &str) -> HashMap<String, HashMap<String, String>> {
             let head = t.split(':').next().unwrap_or(t);
             let word = head.split_whitespace().next().unwrap_or("");
             let is_recipe = !word.is_empty()
-                && word.chars().all(|c| c.is_alphanumeric() || c == '_' || c == '-')
-                && !word.chars().next().map(|c| c.is_ascii_digit()).unwrap_or(true);
+                && word
+                    .chars()
+                    .all(|c| c.is_alphanumeric() || c == '_' || c == '-')
+                && !word
+                    .chars()
+                    .next()
+                    .map(|c| c.is_ascii_digit())
+                    .unwrap_or(true);
             if is_recipe {
                 commit(&block, &mut out, word);
             }
@@ -70,7 +87,11 @@ fn parse_doc_comments(text: &str) -> HashMap<String, HashMap<String, String>> {
 
 /// Pick the doc for `lang` from the parsed comment map, falling back to
 /// the default-language doc.
-fn doc_for(lang: &str, docs: &HashMap<String, HashMap<String, String>>, name: &str) -> Option<String> {
+fn doc_for(
+    lang: &str,
+    docs: &HashMap<String, HashMap<String, String>>,
+    name: &str,
+) -> Option<String> {
     let want = lang_alias(lang);
     docs.get(name)
         .and_then(|m| m.get(want).or_else(|| m.get("default")).cloned())
@@ -93,7 +114,13 @@ fn run_dump(source: JustSource, runner: &Path, justfile: &Path, dir: &Path) -> O
             .current_dir(dir)
             .output(),
         JustSource::System => Command::new(runner)
-            .args(["--justfile", &justfile.to_string_lossy(), "--dump", "--dump-format", "json"])
+            .args([
+                "--justfile",
+                &justfile.to_string_lossy(),
+                "--dump",
+                "--dump-format",
+                "json",
+            ])
             .current_dir(dir)
             .output(),
     }
@@ -142,13 +169,24 @@ fn parse_tasks(dump: &Value) -> Vec<Value> {
             out.push(item);
         }
     }
-    out.sort_by(|a, b| a["name"].as_str().unwrap_or("").cmp(b["name"].as_str().unwrap_or("")));
+    out.sort_by(|a, b| {
+        a["name"]
+            .as_str()
+            .unwrap_or("")
+            .cmp(b["name"].as_str().unwrap_or(""))
+    });
     out
 }
 
 /// Full listing: library justfile tasks + the mod root justfile's recipes
 /// (deduplicated against the library's), like the old GUI.
-pub fn list(source: JustSource, runner: &Path, library_justfile: &Path, mod_root: &Path, lang: &str) -> Value {
+pub fn list(
+    source: JustSource,
+    runner: &Path,
+    library_justfile: &Path,
+    mod_root: &Path,
+    lang: &str,
+) -> Value {
     // Language-prefixed doc comments from both justfiles override the
     // dump's doc (just itself has no i18n in 1.58).
     let lib_docs = std::fs::read_to_string(library_justfile)
@@ -158,9 +196,9 @@ pub fn list(source: JustSource, runner: &Path, library_justfile: &Path, mod_root
         .map(|t| parse_doc_comments(&t))
         .unwrap_or_default();
 
-    let with_docs = |name: &str, docs: &HashMap<String, HashMap<String, String>>| -> Option<String> {
-        doc_for(lang, docs, name)
-    };
+    let with_docs = |name: &str,
+                     docs: &HashMap<String, HashMap<String, String>>|
+     -> Option<String> { doc_for(lang, docs, name) };
 
     let dump = run_dump(source, runner, library_justfile, mod_root);
     let (source_name, mut tasks) = match dump {
@@ -179,8 +217,10 @@ pub fn list(source: JustSource, runner: &Path, library_justfile: &Path, mod_root
     if project_justfile.is_file() {
         if let Some(d) = run_dump(source, runner, &project_justfile, mod_root) {
             let mut mt = parse_tasks(&d);
-            let library_names: std::collections::HashSet<String> =
-                tasks.iter().filter_map(|t| t["name"].as_str().map(String::from)).collect();
+            let library_names: std::collections::HashSet<String> = tasks
+                .iter()
+                .filter_map(|t| t["name"].as_str().map(String::from))
+                .collect();
             mt.retain(|t| !library_names.contains(t["name"].as_str().unwrap_or("")));
             for t in &mut mt {
                 if let Some(name) = t["name"].as_str() {
@@ -197,9 +237,11 @@ pub fn list(source: JustSource, runner: &Path, library_justfile: &Path, mod_root
     json!({ "source": source_name, "tasks": tasks, "mod": mod_group })
 }
 
-/// Full config-features rows: key -> { desc, "1".."4": human-readable
-/// per-chapter values (e.g. "是" / "否" / "noelle").
-pub fn config_feature_rows() -> std::collections::BTreeMap<String, std::collections::BTreeMap<String, Value>> {
+/// Full config-features rows: key -> copy, override candidates, and optional
+/// human-readable per-chapter values. Engine JSON determines which chapters
+/// and config keys are actually available.
+pub fn config_feature_rows(
+) -> std::collections::BTreeMap<String, std::collections::BTreeMap<String, Value>> {
     serde_json::from_str(DESCS_JSON)
         .ok()
         .and_then(|v: Value| v.as_array().cloned())
@@ -217,9 +259,12 @@ pub fn config_feature_rows() -> std::collections::BTreeMap<String, std::collecti
                     if let Some(v) = it.get("opts") {
                         row.insert("opts".to_string(), v.clone());
                     }
-                    for ch in 1..=4 {
-                        if let Some(v) = it.get(&format!("ch{}", ch)) {
-                            row.insert(ch.to_string(), v.clone());
+                    for (field, value) in it.as_object()? {
+                        if let Some(chapter) = field
+                            .strip_prefix("ch")
+                            .and_then(|number| number.parse::<i64>().ok())
+                        {
+                            row.insert(chapter.to_string(), value.clone());
                         }
                     }
                     Some((key, row))

@@ -1,10 +1,10 @@
 # kristal-debug-tools-gui
 
-[kristal-debug-tools](https://github.com/Bli-AIk/kristal-debug-tools) 的图形界面（Deltarune 像素风），给没装 `just` 的 Windows 用户也能可视化操作 mod：
+[kristal-debug-tools](https://github.com/Bli-AIk/kristal-debug-tools) 的图形界面（Deltarune 像素风），给没装 `just` 的 Windows 用户也能可视化操作 Kristal 项目：
 
 - **启动游戏** —— 可视化填 `--lang / --encounter / --wave / --wave-force / --tp / --mercy`，一键拉起
 - **任务列表** —— 枚举 justfile 的 recipe 并运行（`just` 已编译进程序，无需安装）
-- **章节配置** —— 图形化改 `config.kristal` 覆盖（JSONC 保留注释原样写入）
+- **章节配置** —— 从引擎 `configs/chapter*.json` 自动读取基线，图形化改 `config.kristal` 覆盖（JSONC 保留注释原样写入）
 - **项目初始化** —— 模板项目 `start.sh --name` 图形化触发
 - 游戏和任务都在**新的交互式终端窗口**里跑，输出不进 GUI
 
@@ -14,7 +14,7 @@
 
 | `kristal`                                                                                                                  | `kristal-debug-tools-gui` |
 | -------------------------------------------------------------------------------------------------------------------------- | ------------------------- |
-| [v0.10.0](https://github.com/KristalTeam/Kristal/commit/752bc0688ba97ca8a256ba9125b7e05a1ca6edbd) (`752bc068`, 2026-06-23) | 0.1.5                     |
+| [v0.11.0-dev](https://github.com/KristalTeam/Kristal/commit/f62afea63ccab02f468c24ac0d096bd8a2c9aa81) (`f62afea`, 2026-08-16) | 0.1.5                     |
 
 ## 最终用户：一键运行（零工具链）
 
@@ -23,7 +23,7 @@ Windows / Linux 都只需要 **LÖVE 装好并进 PATH**（Git Bash 进 PATH 后
 | 方式         | 说明                                                                                                                                      |
 | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
 | 下载 Release | 去 [Releases](https://github.com/Bli-AIk/kristal-debug-tools-gui/releases) 拿对应架构（x64/arm64）的裸二进制，双击运行                    |
-| `just gui`   | mod 里 `just --justfile libraries/kristal-debug-tools/justfile gui`，首次自动下载最新 release 到 `.tools/gui/`（SHA256 校验），之后直接跑 |
+| `just gui`   | 项目里 `just --justfile libraries/kristal-debug-tools/justfile gui`，首次自动下载最新 release 到 `.tools/gui/`（SHA256 校验），之后直接跑 |
 | `gui.cmd`    | 库目录里双击 `gui.cmd`（Windows），逻辑同上                                                                                               |
 
 运行前自动检测：
@@ -48,8 +48,8 @@ just build        # 全量构建 release bundle
 ```
 src-tauri/
   src/bin/kristal-run.rs   # 命令行 sidecar：just-task / just-dump / 游戏启动（console 子系统）
-  src/launcher.rs          # bin/kristal-run 的 Rust 移植（flag 解析、mod/engine 解析、love 查找）
-  src/config.rs            # mod.json JSONC 保留编辑、章节配置、模板检测
+  src/launcher.rs          # bin/kristal-run 的 Rust 移植（flag 解析、project/engine 解析、love 查找）
+  src/config.rs            # project `mod.json` 的 JSONC 保留编辑、章节配置、模板检测
   src/tasks.rs             # just --dump json 解析（embedded/system 两种来源）
   src/term.rs              # 新终端窗口 spawn（kitty/gnome-terminal/cmd start）
 src/                       # React 前端（中英双语、DPR 缩放、章节配置页）
