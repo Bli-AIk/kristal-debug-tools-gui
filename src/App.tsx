@@ -11,6 +11,12 @@ import {
   resetEdit,
   sameValue,
 } from "./presets";
+import {
+  buildLaunchOptions,
+  supportsLanguageSelection,
+  type LaunchCapabilities,
+  type LaunchForm,
+} from "./launch";
 import "./assets/style.css";
 
 /* ---------- i18n ---------- */
@@ -102,6 +108,7 @@ interface Status {
   just: { found: boolean; path: string; mode?: string };
   project?: { id: string; name?: string; subtitle?: string };
   libraries?: { id: string; version?: string }[];
+  capabilities?: LaunchCapabilities;
   template?: { isTemplate: boolean; name?: string; chapter?: number } | null;
   os: string; arch: string;
   settings?: Record<string, unknown>;
@@ -138,6 +145,7 @@ export default function App() {
   const [runs, setRuns] = useState<RunEntry[]>([]);
   const [, force] = useState(0);
   const flashTimer = useRef<number>(0);
+  const chapterConfigRequest = useRef(0);
 
   const refresh = useCallback(() => force((n) => n + 1), []);
 
@@ -150,7 +158,14 @@ export default function App() {
   const loadAll = useCallback(() => {
     invoke<Status>("status").then(setStatus).catch((e) => showFlash(String(e), true));
     invoke<TasksResult>("tasks", { lang: lang === "zh" ? "zh_hans" : "en" }).then(setTasks).catch(() => setTasks(null));
-    invoke<ChapterConfig>("chapter_config").then(setChapterConfig).catch(() => setChapterConfig(null));
+    const request = ++chapterConfigRequest.current;
+    invoke<ChapterConfig>("chapter_config", { lang })
+      .then((config) => {
+        if (request === chapterConfigRequest.current) setChapterConfig(config);
+      })
+      .catch(() => {
+        if (request === chapterConfigRequest.current) setChapterConfig(null);
+      });
   }, [showFlash]);
 
   useEffect(() => { loadAll(); }, [loadAll]);
@@ -200,8 +215,9 @@ export default function App() {
     if (typeof s.lang === "string" && s.lang !== lang) {
       lang = s.lang;
       refresh();
+      loadAll();
     }
-  }, [status]);
+  }, [loadAll, refresh, status]);
 
   const overrideCount =
     chapterConfig?.items.filter((i) => i.isOverride).length ?? 0;
@@ -223,10 +239,12 @@ export default function App() {
                 <div className="settings-menu">
                   <label className="set-row">
                     <span>{t("language")}</span>
-                    <select value={lang} onChange={(e) => {
-                      lang = e.target.value;
-                      invoke("set_settings", { patch: { lang } }).catch(() => {});
+                    <select value={lang} onChange={async (e) => {
+                      const nextLang = e.target.value;
+                      lang = nextLang;
                       refresh();
+                      await invoke("set_settings", { patch: { lang: nextLang } }).catch(() => {});
+                      loadAll();
                     }}>
                       <option value="zh">中文</option>
                       <option value="en">English</option>
@@ -332,28 +350,16 @@ function StatusBar({ status }: { status: Status | null }) {
 
 /* ---------- launch panel ---------- */
 
-interface LaunchForm {
-  lang: string; encounter: string; wave: string; waveForce: string; tp: string; mercy: string; passthrough: string;
-}
-
 function LaunchPanel({ status, onLaunch }: { status: Status | null; onLaunch: (o: Record<string, unknown>) => void }) {
   const [form, setForm] = useState<LaunchForm>({
     lang: "", encounter: "", wave: "", waveForce: "", tp: "", mercy: "", passthrough: "",
   });
+  const languageEnabled = supportsLanguageSelection(status?.capabilities);
   const set = (k: keyof LaunchForm) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
 
   const launch = () => {
-    const passthrough = form.passthrough.split(/\s+/).filter(Boolean);
-    onLaunch({
-      lang: form.lang || undefined,
-      encounter: form.encounter || undefined,
-      wave: form.wave || undefined,
-      waveForce: form.waveForce || undefined,
-      tp: form.tp || undefined,
-      mercy: form.mercy || undefined,
-      passthrough,
-    });
+    onLaunch(buildLaunchOptions(form, languageEnabled));
   };
 
   const field = (label: string, key: keyof LaunchForm, placeholder = "") => (
@@ -367,14 +373,16 @@ function LaunchPanel({ status, onLaunch }: { status: Status | null; onLaunch: (o
     <div className="broken-box panel">
       <h2>{t("launch")}</h2>
       <div className="form-grid">
-        <label>
-          <span>{t("fLang")}</span>
-          <select value={form.lang} onChange={set("lang")}>
-            <option value="">auto / 自动</option>
-            <option value="en">English (en)</option>
-            <option value="zh-hans">简体中文 (zh-hans)</option>
-          </select>
-        </label>
+        {languageEnabled && (
+          <label>
+            <span>{t("fLang")}</span>
+            <select value={form.lang} onChange={set("lang")}>
+              <option value="">auto / 自动</option>
+              <option value="en">English (en)</option>
+              <option value="zh-hans">简体中文 (zh-hans)</option>
+            </select>
+          </label>
+        )}
         {field(t("fEncounter"), "encounter", "encounter id")}
         {field(t("fWave"), "wave", "2 / wave id")}
         {field(t("fWaveForce"), "waveForce")}

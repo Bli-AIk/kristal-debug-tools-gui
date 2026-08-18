@@ -7,6 +7,8 @@ use serde_json::{Map, Value};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
+pub const KRISTAL_I18N_LIBRARY_ID: &str = "kristalI18n";
+
 fn parse_jsonc_value(text: &str) -> Option<Value> {
     jsonc_parser::parse_to_serde_value::<Value>(text, &ParseOptions::default()).ok()
 }
@@ -315,6 +317,14 @@ pub fn libraries(mod_root: &Path) -> Vec<serde_json::Value> {
     out
 }
 
+/// kristal-i18n is opt-in: only its declared library ID enables --lang.
+/// The directory name is intentionally not a compatibility signal.
+pub fn has_kristal_i18n(mod_root: &Path) -> bool {
+    libraries(mod_root)
+        .iter()
+        .any(|library| library.get("id").and_then(Value::as_str) == Some(KRISTAL_I18N_LIBRARY_ID))
+}
+
 pub fn find_justfile(mod_root: &Path) -> Option<PathBuf> {
     let p = mod_root
         .join("libraries")
@@ -375,6 +385,39 @@ mod tests {
         assert_eq!(chapters, vec![2, 5, 20]);
         assert_eq!(defaults[&5]["storageSlots"], 48);
         assert_eq!(defaults[&5]["newChoicers"], true);
+    }
+
+    #[test]
+    fn i18n_capability_uses_declared_library_id() {
+        let root = std::env::temp_dir().join(format!(
+            "kdt-i18n-capability-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let libraries = root.join("libraries");
+        std::fs::create_dir_all(libraries.join("kristal-i18n")).unwrap();
+        std::fs::write(
+            libraries.join("kristal-i18n").join("lib.json"),
+            r#"{ "id": "anotherLibrary" }"#,
+        )
+        .unwrap();
+
+        assert!(!has_kristal_i18n(&root));
+
+        std::fs::create_dir_all(libraries.join("renamed-library")).unwrap();
+        std::fs::write(
+            libraries.join("renamed-library").join("lib.json"),
+            r#"{ // JSONC is accepted here too
+                "id": "kristalI18n"
+            }"#,
+        )
+        .unwrap();
+
+        assert!(has_kristal_i18n(&root));
+        std::fs::remove_dir_all(root).unwrap();
     }
 
     #[test]

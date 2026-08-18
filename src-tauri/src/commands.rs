@@ -89,15 +89,60 @@ fn settings_file(state: &AppState) -> PathBuf {
         .join("settings.json")
 }
 
-/// Label text without JSON quoting: "Money" -> Money; booleans and null
-/// use the semantic Chinese labels shown by the option controls.
-fn label_str(v: &Value) -> String {
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum ChapterConfigLanguage {
+    Chinese,
+    English,
+}
+
+fn chapter_config_language(lang: Option<&str>) -> ChapterConfigLanguage {
+    let Some(lang) = lang else {
+        return ChapterConfigLanguage::Chinese;
+    };
+    if ["zh", "zh-hans", "zh_hans", "zh-cn", "zh_cn", "zh-hant", "zh_hant", "zh-tw", "zh_tw"]
+        .iter()
+        .any(|candidate| lang.eq_ignore_ascii_case(candidate))
+    {
+        ChapterConfigLanguage::Chinese
+    } else {
+        ChapterConfigLanguage::English
+    }
+}
+
+/// Label text without JSON quoting: "Money" -> Money. Boolean and null
+/// values use the UI language rather than leaking the default Chinese labels.
+fn label_str(v: &Value, language: ChapterConfigLanguage) -> String {
     match v {
-        Value::Bool(true) => "是".to_string(),
-        Value::Bool(false) => "否".to_string(),
-        Value::Null => "未设置".to_string(),
-        Value::String(s) => s.trim_matches('\"').to_string(),
+        Value::Bool(true) => match language {
+            ChapterConfigLanguage::Chinese => "是".to_string(),
+            ChapterConfigLanguage::English => "Yes".to_string(),
+        },
+        Value::Bool(false) => match language {
+            ChapterConfigLanguage::Chinese => "否".to_string(),
+            ChapterConfigLanguage::English => "No".to_string(),
+        },
+        Value::Null => match language {
+            ChapterConfigLanguage::Chinese => "未设置".to_string(),
+            ChapterConfigLanguage::English => "Unset".to_string(),
+        },
+        Value::String(s) => s.to_string(),
         other => other.to_string(),
+    }
+}
+
+/// Catalog chapter labels are Chinese-only today. Preserve their richer
+/// meaning in Chinese; use the engine value in English unless the catalog
+/// label represents one of the shared boolean/unset semantics.
+fn label_from_feature(feature_label: &str, raw: &Value, language: ChapterConfigLanguage) -> String {
+    let label = feature_label.trim_matches('\"');
+    match language {
+        ChapterConfigLanguage::Chinese => label.to_string(),
+        ChapterConfigLanguage::English => match label {
+            "是" => "Yes".to_string(),
+            "否" => "No".to_string(),
+            "未设置" => "Unset".to_string(),
+            _ => label_str(raw, language),
+        },
     }
 }
 
@@ -129,6 +174,7 @@ pub fn status(app: tauri::AppHandle, state: State<AppState>) -> Value {
         },
         "project": { "id": state.mod_id, "name": name, "subtitle": subtitle },
         "libraries": config::libraries(&state.mod_root),
+        "capabilities": { "i18n": config::has_kristal_i18n(&state.mod_root) },
         "template": config::detect_template(&state.mod_root),
         "os": std::env::consts::OS,
         "arch": std::env::consts::ARCH,
@@ -224,8 +270,18 @@ pub struct LaunchArgs {
     pub passthrough: Vec<String>,
 }
 
+fn validate_launch_language(mod_root: &Path, lang: Option<&str>) -> Result<(), String> {
+    if lang.is_some() && !config::has_kristal_i18n(mod_root) {
+        return Err(
+            "the --lang option requires the kristalI18n library in this project".to_string(),
+        );
+    }
+    Ok(())
+}
+
 #[tauri::command]
 pub fn launch_game(state: State<AppState>, req: LaunchArgs) -> Result<Value, String> {
+    validate_launch_language(&state.mod_root, req.lang.as_deref())?;
     let opts = launcher::LaunchOptions {
         lang: req.lang,
         encounter: req.encounter,
@@ -258,22 +314,45 @@ pub fn launch_game(state: State<AppState>, req: LaunchArgs) -> Result<Value, Str
 }
 
 #[tauri::command]
-pub fn chapter_config(state: State<AppState>) -> Value {
+pub fn chapter_config(state: State<AppState>, lang: Option<String>) -> Value {
     let defaults = config::chapter_defaults(&state.engine_root);
     let overrides = config::config_overrides(&state.mod_root);
     let features = tasks::config_feature_rows();
     let chapter = config::current_chapter(&state.mod_root);
-    chapter_config_view(&defaults, &overrides, &features, chapter)
+    chapter_config_view_with_language(
+        &defaults,
+        &overrides,
+        &features,
+        chapter,
+        chapter_config_language(lang.as_deref()),
+    )
 }
 
 /// Build the chapter-config view. The selectable key set and available
 /// chapters come from the engine's `configs/chapterN.json` files;
 /// config-features.json only supplies copy and extra option labels.
+#[cfg(test)]
 fn chapter_config_view(
     defaults: &BTreeMap<i64, Map<String, Value>>,
     overrides: &Map<String, Value>,
     features: &BTreeMap<String, BTreeMap<String, Value>>,
     chapter: i64,
+) -> Value {
+    chapter_config_view_with_language(
+        defaults,
+        overrides,
+        features,
+        chapter,
+        ChapterConfigLanguage::Chinese,
+    )
+}
+
+fn chapter_config_view_with_language(
+    defaults: &BTreeMap<i64, Map<String, Value>>,
+    overrides: &Map<String, Value>,
+    features: &BTreeMap<String, BTreeMap<String, Value>>,
+    chapter: i64,
+    language: ChapterConfigLanguage,
 ) -> Value {
     let chapters: Vec<i64> = defaults.keys().copied().collect();
 
@@ -296,11 +375,11 @@ fn chapter_config_view(
                             .and_then(|f| f.get(&ch.to_string()))
                             .and_then(|v| v.as_str())
                         {
-                            return label.trim_matches('"').to_string();
+                            return label_from_feature(label, raw, language);
                         }
                     }
                 }
-                label_str(raw)
+                label_str(raw, language)
             };
 
             // All native chapter defaults are valid choices. Add the menu's
@@ -335,7 +414,7 @@ fn chapter_config_view(
                         .iter()
                         .find(|(_, r)| r == ov)
                         .map(|(l, _)| l.clone())
-                        .unwrap_or_else(|| label_str(ov));
+                        .unwrap_or_else(|| label_str(ov, language));
                     (json!({ "label": label, "value": ov.clone() }), true)
                 }
                 None => {
@@ -575,6 +654,22 @@ mod tests {
     }
 
     #[test]
+    fn chapter_config_language_matches_the_gui_language_contract() {
+        assert!(matches!(
+            chapter_config_language(None),
+            ChapterConfigLanguage::Chinese
+        ));
+        assert!(matches!(
+            chapter_config_language(Some("zh-hans")),
+            ChapterConfigLanguage::Chinese
+        ));
+        assert!(matches!(
+            chapter_config_language(Some("en")),
+            ChapterConfigLanguage::English
+        ));
+    }
+
+    #[test]
     fn view_keys_are_the_real_chapter_defaults_union() {
         let defaults = defaults_for(&[]);
         let view = chapter_config_view(&defaults, &Map::new(), &BTreeMap::new(), 1);
@@ -654,6 +749,92 @@ mod tests {
     }
 
     #[test]
+    fn english_value_labels_follow_the_ui_language() {
+        let defaults = defaults_for(&[
+            (
+                "enemyAuras",
+                Value::Bool(false),
+                Value::Bool(true),
+                Value::Bool(true),
+                Value::Bool(true),
+                Value::Bool(true),
+            ),
+            (
+                "growStrongerChara",
+                Value::Null,
+                Value::String("noelle".into()),
+                Value::String("noelle".into()),
+                Value::String("noelle".into()),
+                Value::String("noelle".into()),
+            ),
+            (
+                "speechBubble",
+                Value::String("round".into()),
+                Value::String("cyber".into()),
+                Value::String("cyber".into()),
+                Value::String("cyber".into()),
+                Value::String("cyber".into()),
+            ),
+            (
+                "darkCurrency",
+                Value::String("Dark Dollars".into()),
+                Value::String("Dark Dollars".into()),
+                Value::String("Dark Dollars".into()),
+                Value::String("Dark Dollars".into()),
+                Value::String("Dark Dollars".into()),
+            ),
+        ]);
+        let mut features = BTreeMap::new();
+        let mut enemy_auras = BTreeMap::new();
+        enemy_auras.insert("1".to_string(), Value::String("否".into()));
+        enemy_auras.insert("2".to_string(), Value::String("是".into()));
+        features.insert("enemyAuras".to_string(), enemy_auras);
+
+        let mut chara = BTreeMap::new();
+        chara.insert("1".to_string(), Value::String("未设置".into()));
+        features.insert("growStrongerChara".to_string(), chara);
+
+        let mut speech_bubble = BTreeMap::new();
+        speech_bubble.insert("1".to_string(), Value::String("\"圆形\"".into()));
+        speech_bubble.insert("2".to_string(), Value::String("\"赛博\"".into()));
+        features.insert("speechBubble".to_string(), speech_bubble);
+
+        let mut dark_currency = BTreeMap::new();
+        dark_currency.insert("1".to_string(), Value::String("\"黑暗币\"".into()));
+        features.insert("darkCurrency".to_string(), dark_currency);
+
+        let view = chapter_config_view_with_language(
+            &defaults,
+            &Map::new(),
+            &features,
+            1,
+            ChapterConfigLanguage::English,
+        );
+
+        let enemy = item(&view, "enemyAuras");
+        assert_eq!(enemy["current"]["label"], "No");
+        assert_eq!(enemy["chValues"]["2"]["label"], "Yes");
+        let enemy_labels: Vec<&str> = enemy["options"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|option| option["label"].as_str().unwrap())
+            .collect();
+        assert!(enemy_labels.contains(&"No"));
+        assert!(enemy_labels.contains(&"Yes"));
+
+        let chara = item(&view, "growStrongerChara");
+        assert_eq!(chara["current"]["label"], "Unset");
+
+        let speech_bubble = item(&view, "speechBubble");
+        assert_eq!(speech_bubble["current"]["label"], "round");
+        assert_eq!(speech_bubble["chValues"]["2"]["label"], "cyber");
+
+        let dark_currency = item(&view, "darkCurrency");
+        assert_eq!(dark_currency["current"]["label"], "Dark Dollars");
+    }
+
+    #[test]
     fn save_rejects_keys_outside_the_real_chapter_defaults() {
         let defaults = defaults_for(&[(
             "storageSlots",
@@ -698,6 +879,30 @@ mod tests {
         assert_eq!(view["chapters"], json!([1, 2, 3, 4, 5]));
         assert_eq!(item(&view, "storageSlots")["current"]["value"], 48);
         assert_eq!(item(&view, "newChoicers")["current"]["value"], true);
+    }
+
+    #[test]
+    fn launch_language_requires_kristal_i18n() {
+        let root = std::env::temp_dir().join(format!(
+            "kdt-launch-language-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&root).unwrap();
+
+        assert!(validate_launch_language(&root, None).is_ok());
+        let err = validate_launch_language(&root, Some("zh-hans")).unwrap_err();
+        assert!(err.contains("kristalI18n"));
+
+        let library = root.join("libraries").join("any-directory-name");
+        std::fs::create_dir_all(&library).unwrap();
+        std::fs::write(library.join("lib.json"), r#"{ "id": "kristalI18n" }"#).unwrap();
+
+        assert!(validate_launch_language(&root, Some("zh-hans")).is_ok());
+        std::fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
