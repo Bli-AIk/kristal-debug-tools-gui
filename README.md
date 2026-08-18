@@ -12,9 +12,10 @@
 
 ## Kristal Version Support
 
-| `kristal`                                                                                                                          | `kristal-debug-tools-gui`                                  |
-| ---------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| [v0.10.0](https://github.com/KristalTeam/Kristal/commit/752bc0688ba97ca8a256ba9125b7e05a1ca6edbd) (`752bc068`, 2026-06-23)     | v0.1.5                                                     |
+| `kristal`                                                                                                                    | `kristal-debug-tools-gui` |
+| -------------------------------------------------------------------------------------------------------------------------------| ------------------------------------- |
+| [v0.11.0-dev](https://github.com/KristalTeam/Kristal/commit/f62afea63ccab02f468c24ac0d096bd8a2c9aa81) (`f62afea`, 2026-08-16) | v0.2.0（发布后；源码 ref 为 `feat/v0.11-dev`） |
+| [v0.10.0](https://github.com/KristalTeam/Kristal/commit/752bc0688ba97ca8a256ba9125b7e05a1ca6edbd) (`752bc068`, 2026-06-23)    | v0.1.5                                |
 | [v0.11.0-dev](https://github.com/KristalTeam/Kristal/commit/f62afea63ccab02f468c24ac0d096bd8a2c9aa81) (`f62afea`, 2026-08-16) | v0.2.0（发布后；源码 ref 为 `feat/v0.11-dev`）             |
 
 ## 最终用户：一键运行（零工具链）
