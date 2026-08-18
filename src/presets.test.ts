@@ -6,6 +6,7 @@ import {
   hasEdit,
   isCustom,
   overrideValue,
+  previewDiff,
   resetEdit,
 } from "./presets";
 
@@ -17,6 +18,7 @@ const item = {
     "2": { label: "是", value: true },
     "3": { label: "是", value: true },
     "4": { label: "否", value: false },
+    "5": { label: "是", value: true },
   },
 };
 
@@ -29,12 +31,14 @@ const awake = {
     "2": { label: "是", value: true },
     "3": { label: "否", value: false },
     "4": { label: "是", value: true },
+    "5": { label: "是", value: true },
   },
 };
 
 describe("chapter baseline and overrides", () => {
   it("uses the selected chapter as the baseline without generating edits", () => {
     expect(chapterDefault(item, 4).value).toBe(false);
+    expect(chapterDefault(item, 5).value).toBe(true);
     expect(effectiveValue(item, 4, {})).toBe(false);
     expect(effectiveValue(item, 2, {})).toBe(true);
   });
@@ -106,5 +110,29 @@ describe("chapter baseline and overrides", () => {
     const edit = editForValue(item, 4, true);
     expect(edit).toBe(true);
     expect(effectiveValue(item, 4, { growStronger: edit! })).toBe(true);
+  });
+
+  it("returns a target chapter value when it differs from the saved baseline", () => {
+    expect(previewDiff(item, 5)).toEqual({ label: "是", value: true });
+    expect(previewDiff(item, 1)).toBeUndefined();
+  });
+
+  it("supports numeric chapter diffs such as the Ch.5 storage preset", () => {
+    const storage = {
+      key: "storageSlots",
+      current: { label: "36", value: 36 },
+      chValues: {
+        "4": { label: "36", value: 36 },
+        "5": { label: "48", value: 48 },
+      },
+    };
+    expect(previewDiff(storage, 5)).toEqual({ label: "48", value: 48 });
+  });
+
+  it("suppresses chapter diffs for saved overrides and staged edits", () => {
+    const overridden = { ...item, isOverride: true };
+    expect(previewDiff(overridden, 5)).toBeUndefined();
+    expect(previewDiff(item, 5, { growStronger: true })).toBeUndefined();
+    expect(previewDiff(item, 5, { growStronger: null })).toBeUndefined();
   });
 });

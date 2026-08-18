@@ -7,9 +7,16 @@ import {
   effectiveValue,
   hasEdit as hasStagedEdit,
   isCustom,
+  previewDiff,
   resetEdit,
   sameValue,
 } from "./presets";
+import {
+  buildLaunchOptions,
+  supportsLanguageSelection,
+  type LaunchCapabilities,
+  type LaunchForm,
+} from "./launch";
 import "./assets/style.css";
 
 /* ---------- i18n ---------- */
@@ -19,7 +26,7 @@ const I18N: Record<string, Record<string, string>> = {
     tasks: "运行项列表（高级）", launch: "启动游戏", runs: "运行记录",
     project: "项目信息", system: "系统", libraries: "依赖库", projectBuilds: "项目构建", build: "构建",
     buildTargetBuild: "桌面端", buildTargetLove: "love文件", buildTargetWin: "Windows可执行程序",
-    buildTargetMod: "mod压缩包", buildTargetAndroid: "安卓", buildTargetAndroidWrap: "安卓套包",
+    buildTargetProject: "项目压缩包", buildTargetAndroid: "安卓", buildTargetAndroidWrap: "安卓套包",
     cleanBuild: "清理构建",
     initProject: "项目初始化", projectName: "项目名", initBtn: "初始化项目", initConfirm: "再次点击确认",
     initDone: "初始化已在终端窗口启动，完成后建议重启 GUI", initFail: "初始化失败",
@@ -28,9 +35,9 @@ const I18N: Record<string, Record<string, string>> = {
     basedOnChapter: "基于 Ch.{chapter} 的自定义", chapterSaved: "章节预设已保存", overridesSaved: "章节预设与自定义覆盖已保存",
     fLang: "语言", fEncounter: "遭遇", fWave: "波次", fWaveForce: "强制波次",
     fTp: "初始 TP", fMercy: "初始 mercy", fExtra: "额外参数",
-    love: "love", engine: "引擎", mod: "模组", just: "just",
+    love: "love", engine: "引擎", projectRoot: "项目", just: "just",
     loveMissing: "未找到 love（请安装 LÖVE 并加入 PATH）",
-    noEngine: "未找到 Kristal 引擎", noMod: "未找到 mod", justNone: "不可用",
+    noEngine: "未找到 Kristal 引擎", noProject: "未找到项目", justNone: "不可用",
     empty: "（空）", noTasks: "没有可运行的任务",
     launchOk: "游戏已在新终端窗口中启动", taskStarted: "任务已在新终端窗口中启动",
     taskFail: "启动失败", apply: "应用", overrideDefault: "默认", overrideOn: "开", overrideOff: "关",
@@ -41,7 +48,7 @@ const I18N: Record<string, Record<string, string>> = {
     settings: "设置", language: "语言", keepOpen: "任务运行完保持窗口打开",
     icons: "自定义图标", iconsGenerate: "从一张大图生成全部", iconsPick: "选择",
     iconsClear: "清除", iconsGroupWindow: "游戏窗口", iconsGroupWin: "Windows (.exe)",
-    iconsGroupAndroid: "Android 启动图标", iconsRebuildHint: "保存后需在 thrash-machine 里重新构建（just build）才会生效",
+    iconsGroupAndroid: "Android 启动图标", iconsRebuildHint: "保存后需重新构建项目（just build）才会生效",
     iconsScopeHint: "仅对 win 和 android 构建生效",
     iconsAndroidHint: "Android 按屏幕密度取图标：某档缺失时，构建会用最接近的一档自动补位。",
     iconsSaved: "图标已更新", iconsCleared: "已清除", iconsBadImage: "不是可用的图片",
@@ -51,7 +58,7 @@ const I18N: Record<string, Record<string, string>> = {
     tasks: "RUN LIST (ADVANCED)", launch: "LAUNCH GAME", runs: "RUNS",
     project: "PROJECT", system: "system", libraries: "libraries", projectBuilds: "PROJECT BUILDS", build: "BUILD",
     buildTargetBuild: "DESKTOP", buildTargetLove: "LOVE FILE", buildTargetWin: "WINDOWS EXE",
-    buildTargetMod: "MOD PACKAGE", buildTargetAndroid: "ANDROID", buildTargetAndroidWrap: "ANDROID WRAP",
+    buildTargetProject: "PROJECT PACKAGE", buildTargetAndroid: "ANDROID", buildTargetAndroidWrap: "ANDROID WRAP",
     cleanBuild: "CLEAN BUILD",
     initProject: "INITIALIZE PROJECT", projectName: "PROJECT NAME", initBtn: "INITIALIZE", initConfirm: "CLICK AGAIN TO CONFIRM",
     initDone: "initialization started in a terminal window — restart the GUI when done", initFail: "init failed",
@@ -60,9 +67,9 @@ const I18N: Record<string, Record<string, string>> = {
     basedOnChapter: "customized from Ch.{chapter}", chapterSaved: "chapter preset saved", overridesSaved: "chapter preset and overrides saved",
     fLang: "LANGUAGE", fEncounter: "ENCOUNTER", fWave: "WAVE", fWaveForce: "WAVE FORCE",
     fTp: "TP", fMercy: "MERCY", fExtra: "EXTRA ARGS",
-    love: "love", engine: "engine", mod: "mod", just: "just",
+    love: "love", engine: "engine", projectRoot: "project", just: "just",
     loveMissing: "love not found (install LÖVE and add it to PATH)",
-    noEngine: "Kristal engine not found", noMod: "mod not found", justNone: "unavailable",
+    noEngine: "Kristal engine not found", noProject: "project not found", justNone: "unavailable",
     empty: "(empty)", noTasks: "no runnable tasks",
     launchOk: "game launched in a new terminal window", taskStarted: "task started in a new terminal window",
     taskFail: "start failed", apply: "APPLY", overrideDefault: "default", overrideOn: "on", overrideOff: "off",
@@ -73,7 +80,7 @@ const I18N: Record<string, Record<string, string>> = {
     settings: "SETTINGS", language: "LANGUAGE", keepOpen: "keep the task window open after it finishes",
     icons: "CUSTOM ICONS", iconsGenerate: "GENERATE ALL FROM ONE IMAGE", iconsPick: "CHOOSE",
     iconsClear: "CLEAR", iconsGroupWindow: "GAME WINDOW", iconsGroupWin: "WINDOWS (.EXE)",
-    iconsGroupAndroid: "ANDROID LAUNCHER", iconsRebuildHint: "takes effect after rebuilding the mod (just build)",
+    iconsGroupAndroid: "ANDROID LAUNCHER", iconsRebuildHint: "takes effect after rebuilding the project (just build)",
     iconsScopeHint: "applies only to win and android builds",
     iconsAndroidHint: "Android picks icons by screen density; a missing slot falls back to the nearest one at build time.",
     iconsSaved: "icons updated", iconsCleared: "cleared", iconsBadImage: "not a usable image",
@@ -94,6 +101,7 @@ interface Status {
   just: { found: boolean; path: string; mode?: string };
   project?: { id: string; name?: string; subtitle?: string };
   libraries?: { id: string; version?: string }[];
+  capabilities?: LaunchCapabilities;
   template?: { isTemplate: boolean; name?: string; chapter?: number } | null;
   os: string; arch: string;
   settings?: Record<string, unknown>;
@@ -112,7 +120,7 @@ interface ChapterItem {
   isOverride?: boolean;
   standard?: boolean;
 }
-interface ChapterConfig { chapter: number; items: ChapterItem[] }
+interface ChapterConfig { chapter: number; chapters: number[]; items: ChapterItem[] }
 interface ChapterSave {
   chapter: number;
   changes: Record<string, unknown | null>;
@@ -130,6 +138,7 @@ export default function App() {
   const [runs, setRuns] = useState<RunEntry[]>([]);
   const [, force] = useState(0);
   const flashTimer = useRef<number>(0);
+  const chapterConfigRequest = useRef(0);
 
   const refresh = useCallback(() => force((n) => n + 1), []);
 
@@ -142,7 +151,14 @@ export default function App() {
   const loadAll = useCallback(() => {
     invoke<Status>("status").then(setStatus).catch((e) => showFlash(String(e), true));
     invoke<TasksResult>("tasks", { lang: lang === "zh" ? "zh_hans" : "en" }).then(setTasks).catch(() => setTasks(null));
-    invoke<ChapterConfig>("chapter_config").then(setChapterConfig).catch(() => setChapterConfig(null));
+    const request = ++chapterConfigRequest.current;
+    invoke<ChapterConfig>("chapter_config", { lang })
+      .then((config) => {
+        if (request === chapterConfigRequest.current) setChapterConfig(config);
+      })
+      .catch(() => {
+        if (request === chapterConfigRequest.current) setChapterConfig(null);
+      });
   }, [showFlash]);
 
   useEffect(() => { loadAll(); }, [loadAll]);
@@ -192,8 +208,9 @@ export default function App() {
     if (typeof s.lang === "string" && s.lang !== lang) {
       lang = s.lang;
       refresh();
+      loadAll();
     }
-  }, [status]);
+  }, [loadAll, refresh, status]);
 
   const overrideCount =
     chapterConfig?.items.filter((i) => i.isOverride).length ?? 0;
@@ -215,10 +232,12 @@ export default function App() {
                 <div className="settings-menu">
                   <label className="set-row">
                     <span>{t("language")}</span>
-                    <select value={lang} onChange={(e) => {
-                      lang = e.target.value;
-                      invoke("set_settings", { patch: { lang } }).catch(() => {});
+                    <select value={lang} onChange={async (e) => {
+                      const nextLang = e.target.value;
+                      lang = nextLang;
                       refresh();
+                      await invoke("set_settings", { patch: { lang: nextLang } }).catch(() => {});
+                      loadAll();
                     }}>
                       <option value="zh">中文</option>
                       <option value="en">English</option>
@@ -313,7 +332,7 @@ function StatusBar({ status }: { status: Status | null }) {
         {t("love")}: {status.love.found ? status.love.path : t("loveMissing")}
       </span>
       <span className={status.engineRoot ? "" : "bad"}>{t("engine")}: {engineTag}</span>
-      <span className={status.modRoot ? "" : "bad"}>{t("mod")}: {status.modRoot || t("noMod")}</span>
+      <span className={status.modRoot ? "" : "bad"}>{t("projectRoot")}: {status.modRoot || t("noProject")}</span>
       {status.just.mode !== "embedded" && (
         <span className={status.just.found ? "" : "bad"}>{t("just")}: {status.just.found ? status.just.path : t("justNone")}</span>
       )}
@@ -324,28 +343,16 @@ function StatusBar({ status }: { status: Status | null }) {
 
 /* ---------- launch panel ---------- */
 
-interface LaunchForm {
-  lang: string; encounter: string; wave: string; waveForce: string; tp: string; mercy: string; passthrough: string;
-}
-
 function LaunchPanel({ status, onLaunch }: { status: Status | null; onLaunch: (o: Record<string, unknown>) => void }) {
   const [form, setForm] = useState<LaunchForm>({
     lang: "", encounter: "", wave: "", waveForce: "", tp: "", mercy: "", passthrough: "",
   });
+  const languageEnabled = supportsLanguageSelection(status?.capabilities);
   const set = (k: keyof LaunchForm) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
 
   const launch = () => {
-    const passthrough = form.passthrough.split(/\s+/).filter(Boolean);
-    onLaunch({
-      lang: form.lang || undefined,
-      encounter: form.encounter || undefined,
-      wave: form.wave || undefined,
-      waveForce: form.waveForce || undefined,
-      tp: form.tp || undefined,
-      mercy: form.mercy || undefined,
-      passthrough,
-    });
+    onLaunch(buildLaunchOptions(form, languageEnabled));
   };
 
   const field = (label: string, key: keyof LaunchForm, placeholder = "") => (
@@ -359,14 +366,16 @@ function LaunchPanel({ status, onLaunch }: { status: Status | null; onLaunch: (o
     <div className="broken-box panel">
       <h2>{t("launch")}</h2>
       <div className="form-grid">
-        <label>
-          <span>{t("fLang")}</span>
-          <select value={form.lang} onChange={set("lang")}>
-            <option value="">auto / 自动</option>
-            <option value="en">English (en)</option>
-            <option value="zh-hans">简体中文 (zh-hans)</option>
-          </select>
-        </label>
+        {languageEnabled && (
+          <label>
+            <span>{t("fLang")}</span>
+            <select value={form.lang} onChange={set("lang")}>
+              <option value="">auto / 自动</option>
+              <option value="en">English (en)</option>
+              <option value="zh-hans">简体中文 (zh-hans)</option>
+            </select>
+          </label>
+        )}
         {field(t("fEncounter"), "encounter", "encounter id")}
         {field(t("fWave"), "wave", "2 / wave id")}
         {field(t("fWaveForce"), "waveForce")}
@@ -539,7 +548,7 @@ function ProjectPanel({ status, onIcons }: { status: Status | null; onIcons: () 
 
 /* ---------- build panel (quick build targets) ---------- */
 
-// The mod's build targets, shown as white icons + captions in a block to the
+// The project's build targets, shown as white icons + captions in a block to the
 // left of the runs log. Keyed by justfile task name; any new build* task gets
 // a wrench fallback so it keeps working without a code change. clean-build is
 // not part of the grid — it lives as a small button in the panel header.
@@ -555,7 +564,7 @@ const BUILD_LABELS: Record<string, string> = {
   "build": "buildTargetBuild",
   "build-love": "buildTargetLove",
   "build-win": "buildTargetWin",
-  "build-mod": "buildTargetMod",
+  "build-mod": "buildTargetProject",
   "build-android": "buildTargetAndroid",
   "build-android-wrap": "buildTargetAndroidWrap",
 };
@@ -637,9 +646,9 @@ function ChapterConfigEditor({ config, onBack, onSaveAll }: {
   onBack: () => void;
   onSaveAll: (save: ChapterSave) => void;
 }) {
-
   // A chapter is a baseline, not a bag of config values. Property edits are
   // only explicit Kristal overrides; null means restore the baseline.
+  // `chapter` is a local preview target until SAVE writes it to mod.json.
   const [chapter, setChapter] = useState(config.chapter);
   const [edits, setEdits] = useState<Record<string, unknown | null>>({});
   useEffect(() => {
@@ -668,10 +677,9 @@ function ChapterConfigEditor({ config, onBack, onSaveAll }: {
     });
   };
   const pendingCount = Object.keys(edits).length;
-  const pending = chapterChanged || pendingCount > 0;
   const userOverrideCount = config.items.filter((item) => isCustom(item, edits)).length;
   const hasSummary = userOverrideCount > 0;
-  const basedOn = t("basedOnChapter").replace("{chapter}", String(chapter));
+  const basedOn = t("basedOnChapter").replace("{chapter}", String(config.chapter));
 
   return (
     <main className="layout">
@@ -679,12 +687,14 @@ function ChapterConfigEditor({ config, onBack, onSaveAll }: {
           <div className="panel-head">
             <h2>{t("chapterConfig")}</h2>
             <span className="chapter-buttons">
-              {[1, 2, 3, 4].map((n) => (
+              {config.chapters.map((n) => (
                 <button key={n}
-                  className={"btn small" + (chapter === n ? " applied" : "")}
+                  className={"btn small"
+                    + (config.chapter === n ? " applied" : "")
+                    + (chapterChanged && chapter === n ? " pending" : "")}
                   onClick={() => setChapter(n)}>Ch.{n}</button>
               ))}
-              {hasSummary && <span className={"chapter-custom" + (pending ? " pending" : "")}>★ {basedOn}</span>}
+              {hasSummary && <span className={"chapter-custom" + (pendingCount ? " pending" : "")}>★ {basedOn}</span>}
               <button className="btn small danger" disabled={!hasChanges}
                 onClick={() => onSaveAll({ chapter, changes: edits })}>
                 {t("save")}
@@ -696,13 +706,31 @@ function ChapterConfigEditor({ config, onBack, onSaveAll }: {
             {config.items.filter((i) => i.standard !== false).map((item) => {
               const staged = hasStagedEdit(edits, item.key);
               const custom = isCustom(item, {}) && !staged;
-              const shownVal = effectiveValue(item, chapter, edits);
-              const shownLabel = item.options.find((option) => sameValue(option.value, shownVal))?.label
-                ?? item.chValues?.[String(chapter)]?.label
-                ?? String(shownVal);
-              const isChosen = (option: { value: unknown }) => sameValue(option.value, shownVal);
-              const previousVal = effectiveValue(item, chapter, {});
-              const isPrevious = (option: { value: unknown }) => sameValue(option.value, previousVal);
+              // The saved config stays visible while another chapter is being
+              // previewed. A staged override takes precedence over that diff.
+              const preview = previewDiff(item, chapter, edits);
+              const shownVal = staged ? effectiveValue(item, chapter, edits) : item.current.value;
+              const shownLabel = staged
+                ? item.options.find((option) => sameValue(option.value, shownVal))?.label
+                  ?? item.chValues?.[String(chapter)]?.label
+                  ?? String(shownVal)
+                : item.current.label;
+              const isCurrent = (option: { value: unknown }) => sameValue(option.value, item.current.value);
+              const isShown = (option: { value: unknown }) => sameValue(option.value, shownVal);
+              const isPreview = (option: { value: unknown }) =>
+                preview !== undefined && sameValue(option.value, preview.value);
+              const controlState = staged ? " pending" : custom ? " custom" : preview ? " preset-diff" : "";
+              const optionClass = (option: { value: unknown }) => {
+                let classes = "btn small";
+                if (staged) {
+                  if (isShown(option)) classes += " pending";
+                  else if (isCurrent(option)) classes += " applied";
+                } else if (isCurrent(option)) {
+                  classes += custom ? " custom" : " applied";
+                }
+                if (!staged && isPreview(option)) classes += " pending";
+                return classes;
+              };
               return (
                 <div className={"cc-row" + (staged ? " pending" : custom ? " custom" : "")} key={item.key}>
                   <span className="cc-name" title={item.key}>
@@ -711,24 +739,25 @@ function ChapterConfigEditor({ config, onBack, onSaveAll }: {
                       <span className="cc-desc"> — {lang === "zh" ? (item.desc ?? item.descEn) : (item.descEn ?? item.desc)}</span>
                     )}
                   </span>
-                  <span className="cc-control">
+                  <span className={"cc-control" + (preview ? " preset-diff" : "")}>
                     {item.options.length <= 1 && typeof shownVal === "string" ? (
                       <>
-                        <input className={"cc-edit" + (staged ? " pending" : custom ? " custom" : "")} type="text"
+                        {preview && <span className="cc-preview" title={t("chapterConfig") + ` Ch.${chapter}`}>{preview.label}</span>}
+                        <input className={"cc-edit" + controlState} type="text"
                           value={String(shownVal)}
                           onChange={(e) => stageValue(item, e.target.value)}
                           onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }} />
                       </>
                     ) : item.options.length <= 1 ? (
-                      <span className={"cc-value" + (staged ? " pending" : custom ? " custom" : "")}>{shownLabel || "—"}</span>
+                      <>
+                        {preview && <span className="cc-preview" title={t("chapterConfig") + ` Ch.${chapter}`}>{preview.label}</span>}
+                        <span className={"cc-value" + controlState}>{shownLabel || "—"}</span>
+                      </>
                     ) : item.options.length === 2 ? (
                       <span className="cc-pair">
                         {item.options.map((o) => (
                           <button key={o.label}
-                            className={"btn small"
-                              + (staged
-                                ? (isChosen(o) ? " pending" : isPrevious(o) ? " applied" : "")
-                                : (isChosen(o) ? (custom ? " custom" : " applied") : ""))}
+                            className={optionClass(o)}
                             onClick={() => stageValue(item, o.value)}>
                             {o.label}
                           </button>
@@ -736,7 +765,8 @@ function ChapterConfigEditor({ config, onBack, onSaveAll }: {
                       </span>
                     ) : (
                       <>
-                        <select className={"cc-select" + (staged ? " pending" : custom ? " custom" : "")} value={String(shownVal)}
+                        {preview && <span className="cc-preview" title={t("chapterConfig") + ` Ch.${chapter}`}>{preview.label}</span>}
+                        <select className={"cc-select" + controlState} value={String(shownVal)}
                           onChange={(e) => {
                             const o = item.options.find((x) => String(x.value) === e.target.value);
                             if (o) stageValue(item, o.value);

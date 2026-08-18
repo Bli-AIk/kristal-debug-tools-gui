@@ -1,11 +1,5 @@
 [
  {
-  "key": "enableStorage",
-  "desc": "额外 48 格物品栏",
-  "ch1": "否",
-  "ch2": "是"
- },
- {
   "key": "smallSaveMenu",
   "desc": "不含仓库/招募选项的单文件存档菜单",
   "ch1": "是",
@@ -392,6 +386,26 @@
   ]
  },
  {
+  "key": "newChoicers",
+  "desc": "是否使用新版选项框样式",
+  "name": "New Choicers",
+  "descEn": "Whether to use the new choicer style or not",
+  "opts": [
+   true,
+   false
+  ]
+ },
+ {
+  "key": "newSpellCostCalculation",
+  "desc": "是否使用第三章起的新版法术费用计算",
+  "name": "New Spell Cost Calculation",
+  "descEn": "Whether to use the Chapter 3+ spell cost calculation",
+  "opts": [
+   true,
+   false
+  ]
+ },
+ {
   "key": "oldDualHealFormula",
   "desc": "使用旧版 Dual Heal 回复量计算",
   "name": "Old Dual Heal Formula",
@@ -470,7 +484,8 @@
    0,
    12,
    24,
-   36
+   36,
+   48
   ]
  },
  {
