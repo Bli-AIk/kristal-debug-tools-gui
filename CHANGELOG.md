@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.2.0](https://github.com/Bli-AIk/kristal-debug-tools-gui/compare/v0.1.5...v0.2.0) (2026-08-18)
+
+
+### Features
+
+* **chapter:** support dynamic presets and restore diff preview ([4b1fa1a](https://github.com/Bli-AIk/kristal-debug-tools-gui/commit/4b1fa1abb49c0edabb6f0476113f27a6c039c30e))
+* support Kristal 0.11.0-dev ([9d88e4e](https://github.com/Bli-AIk/kristal-debug-tools-gui/commit/9d88e4eab021d6579bbb1f56591ea5c313bb9276))
+
+
+### Bug Fixes
+
+* **gui:** localize chapter values and gate language launch ([76fef6c](https://github.com/Bli-AIk/kristal-debug-tools-gui/commit/76fef6cae3083c19a2853c0bf40976c8c9efe722))
+* **gui:** remove stale frontend chapter labels ([4f6f59c](https://github.com/Bli-AIk/kristal-debug-tools-gui/commit/4f6f59c96f4c34a6f391c2d5d2738cb68e1e4961))
+* **i18n:** localize chapter-preset value labels (是/否/未设置) for English UI ([8ddc460](https://github.com/Bli-AIk/kristal-debug-tools-gui/commit/8ddc460c4877e7a1afc4c135f52dc54191ae7600))
+
 ## [0.1.5](https://github.com/Bli-AIk/kristal-debug-tools-gui/compare/v0.1.4...v0.1.5) (2026-08-14)
 
 

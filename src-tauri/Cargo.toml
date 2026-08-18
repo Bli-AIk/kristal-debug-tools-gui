@@ -1,6 +1,6 @@
 [package]
 name = "kristal-debug-tools-gui"
-version = "0.1.5"
+version = "0.2.0"
 description = "Deltarune-style GUI for kristal-debug-tools"
 authors = ["Bli_Aik"]
 edition = "2021"
