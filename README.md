@@ -2,9 +2,9 @@
 
 [kristal-debug-tools](https://github.com/Bli-AIk/kristal-debug-tools) 的图形界面（Deltarune 像素风），给没装 `just` 的 Windows 用户也能可视化操作 Kristal 项目：
 
-- **启动游戏** —— 可视化填 `--lang / --encounter / --wave / --wave-force / --tp / --mercy`，一键拉起
+- **启动游戏** —— 可视化填 `--encounter / --wave / --wave-force / --tp / --mercy`；检测到 `kristalI18n` 库后才显示 `--lang`
 - **任务列表** —— 枚举 justfile 的 recipe 并运行（`just` 已编译进程序，无需安装）
-- **章节配置** —— 从引擎 `configs/chapter*.json` 自动读取基线，图形化改 `config.kristal` 覆盖（JSONC 保留注释原样写入）
+- **章节配置** —— 从引擎 `configs/chapter*.json` 自动读取基线，图形化改 `config.kristal` 覆盖；值标签跟随 GUI 语言（JSONC 保留注释原样写入）
 - **项目初始化** —— 模板项目 `start.sh --name` 图形化触发
 - 游戏和任务都在**新的交互式终端窗口**里跑，输出不进 GUI
 
@@ -12,9 +12,10 @@
 
 ## Kristal Version Support
 
-| `kristal`                                                                                                                  | `kristal-debug-tools-gui` |
-| -------------------------------------------------------------------------------------------------------------------------- | ------------------------- |
-| [v0.10.0](https://github.com/KristalTeam/Kristal/commit/752bc0688ba97ca8a256ba9125b7e05a1ca6edbd) (`752bc068`, 2026-06-23) | 0.1.5                     |
+| `kristal`                                                                                                                          | `kristal-debug-tools-gui`                                  |
+| ---------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| [v0.10.0](https://github.com/KristalTeam/Kristal/commit/752bc0688ba97ca8a256ba9125b7e05a1ca6edbd) (`752bc068`, 2026-06-23)     | v0.1.5                                                     |
+| [v0.11.0-dev](https://github.com/KristalTeam/Kristal/commit/f62afea63ccab02f468c24ac0d096bd8a2c9aa81) (`f62afea`, 2026-08-16) | v0.2.0（发布后；源码 ref 为 `feat/v0.11-dev`）             |
 
 ## 最终用户：一键运行（零工具链）
 
@@ -23,14 +24,12 @@ Windows / Linux 都只需要 **LÖVE 装好并进 PATH**（Git Bash 进 PATH 后
 | 方式         | 说明                                                                                                                                      |
 | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
 | 下载 Release | 去 [Releases](https://github.com/Bli-AIk/kristal-debug-tools-gui/releases) 拿对应架构（x64/arm64）的裸二进制，双击运行                    |
-| `just gui`   | 项目里 `just --justfile libraries/kristal-debug-tools/justfile gui`，首次自动下载最新 release 到 `.tools/gui/`（SHA256 校验），之后直接跑 |
+| `just gui`   | 项目里 `just --justfile libraries/kristal-debug-tools/justfile gui`，按引擎 `VERSION` 下载匹配的 release 到 `.tools/gui/`（SHA256 校验） |
 | `gui.cmd`    | 库目录里双击 `gui.cmd`（Windows），逻辑同上                                                                                               |
 
-运行前自动检测：
+`just gui` 只运行当前引擎对应的固定 release：`0.10.0 -> v0.1.5`，`0.11.0-dev -> v0.2.0`。未知引擎版本会停止并说明原因，不会请求 GitHub 的全局 `latest`。目标 release 尚未上传时请稍后重试。
 
-- 本地有编译好的（`src-tauri/target/release/`）→ 直接用本地的
-- 检测到编译环境（cargo + node）→ 问一次：**用 release bin 还是本地编译？**（5 秒不答默认 bin），选择记在 `.tools/gui/.mode`，之后不再问；`just gui bin|compile` 可随时改
-- 都没有 → 静默下载 bin
+`just gui-dev` 会 checkout 当前引擎对应的 GUI tag 或 `feat/v0.11-dev` 分支后从源码启动；源码目录有本地改动或无法快进时会停止，避免覆盖开发中的工作。
 
 ## 开发者
 

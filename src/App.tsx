@@ -92,13 +92,6 @@ const I18N: Record<string, Record<string, string>> = {
 let lang = (navigator.language?.toLowerCase().startsWith("zh") ? "zh" : "en") as string;
 const t = (key: string) => I18N[lang]?.[key] ?? I18N.en[key] ?? key;
 
-// Chapter presets arrive with Chinese labels ("是"/"否"/"未设置") from the
-// backend; map them for the English UI without touching the data files.
-const localizeLabel = (label: string) =>
-  lang === "en"
-    ? ({ 是: "Yes", 否: "No", 未设置: "Unset" } as Record<string, string>)[label] ?? label
-    : label;
-
 /* ---------- types ---------- */
 
 interface Status {
@@ -749,7 +742,7 @@ function ChapterConfigEditor({ config, onBack, onSaveAll }: {
                   <span className={"cc-control" + (preview ? " preset-diff" : "")}>
                     {item.options.length <= 1 && typeof shownVal === "string" ? (
                       <>
-                        {preview && <span className="cc-preview" title={t("chapterConfig") + ` Ch.${chapter}`}>{localizeLabel(preview.label)}</span>}
+                        {preview && <span className="cc-preview" title={t("chapterConfig") + ` Ch.${chapter}`}>{preview.label}</span>}
                         <input className={"cc-edit" + controlState} type="text"
                           value={String(shownVal)}
                           onChange={(e) => stageValue(item, e.target.value)}
@@ -757,8 +750,8 @@ function ChapterConfigEditor({ config, onBack, onSaveAll }: {
                       </>
                     ) : item.options.length <= 1 ? (
                       <>
-                        {preview && <span className="cc-preview" title={t("chapterConfig") + ` Ch.${chapter}`}>{localizeLabel(preview.label)}</span>}
-                        <span className={"cc-value" + controlState}>{localizeLabel(shownLabel) || "—"}</span>
+                        {preview && <span className="cc-preview" title={t("chapterConfig") + ` Ch.${chapter}`}>{preview.label}</span>}
+                        <span className={"cc-value" + controlState}>{shownLabel || "—"}</span>
                       </>
                     ) : item.options.length === 2 ? (
                       <span className="cc-pair">
@@ -766,20 +759,20 @@ function ChapterConfigEditor({ config, onBack, onSaveAll }: {
                           <button key={o.label}
                             className={optionClass(o)}
                             onClick={() => stageValue(item, o.value)}>
-                            {localizeLabel(o.label)}
+                            {o.label}
                           </button>
                         ))}
                       </span>
                     ) : (
                       <>
-                        {preview && <span className="cc-preview" title={t("chapterConfig") + ` Ch.${chapter}`}>{localizeLabel(preview.label)}</span>}
+                        {preview && <span className="cc-preview" title={t("chapterConfig") + ` Ch.${chapter}`}>{preview.label}</span>}
                         <select className={"cc-select" + controlState} value={String(shownVal)}
                           onChange={(e) => {
                             const o = item.options.find((x) => String(x.value) === e.target.value);
                             if (o) stageValue(item, o.value);
                           }}>
                           {item.options.map((o) => (
-                            <option key={String(o.value)} value={String(o.value)}>{localizeLabel(o.label)}</option>
+                            <option key={String(o.value)} value={String(o.value)}>{o.label}</option>
                           ))}
                         </select>
                       </>

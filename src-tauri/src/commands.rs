@@ -783,6 +783,38 @@ mod tests {
                 Value::String("Dark Dollars".into()),
                 Value::String("Dark Dollars".into()),
             ),
+            (
+                "darkCurrencyShort",
+                Value::String("D$".into()),
+                Value::String("D$".into()),
+                Value::String("D$".into()),
+                Value::String("D$".into()),
+                Value::String("D$".into()),
+            ),
+            (
+                "lightCurrency",
+                Value::String("Money".into()),
+                Value::String("Money".into()),
+                Value::String("Money".into()),
+                Value::String("Money".into()),
+                Value::String("Money".into()),
+            ),
+            (
+                "lightCurrencyShort",
+                Value::String("$".into()),
+                Value::String("$".into()),
+                Value::String("$".into()),
+                Value::String("$".into()),
+                Value::String("$".into()),
+            ),
+            (
+                "tpName",
+                Value::String("TP".into()),
+                Value::String("TP".into()),
+                Value::String("TP".into()),
+                Value::String("TP".into()),
+                Value::String("TP".into()),
+            ),
         ]);
         let mut features = BTreeMap::new();
         let mut enemy_auras = BTreeMap::new();
@@ -803,9 +835,28 @@ mod tests {
         dark_currency.insert("1".to_string(), Value::String("\"黑暗币\"".into()));
         features.insert("darkCurrency".to_string(), dark_currency);
 
+        let mut dark_currency_short = BTreeMap::new();
+        dark_currency_short.insert("1".to_string(), Value::String("\"D$\"".into()));
+        features.insert("darkCurrencyShort".to_string(), dark_currency_short);
+
+        let mut light_currency = BTreeMap::new();
+        light_currency.insert("1".to_string(), Value::String("\"Money\"".into()));
+        features.insert("lightCurrency".to_string(), light_currency);
+
+        let mut light_currency_short = BTreeMap::new();
+        light_currency_short.insert("1".to_string(), Value::String("\"$\"".into()));
+        features.insert("lightCurrencyShort".to_string(), light_currency_short);
+
+        let mut tp_name = BTreeMap::new();
+        tp_name.insert("1".to_string(), Value::String("\"TP\"".into()));
+        features.insert("tpName".to_string(), tp_name);
+
+        let mut overrides = Map::new();
+        overrides.insert("lightCurrency".to_string(), Value::String("Credits".into()));
+
         let view = chapter_config_view_with_language(
             &defaults,
-            &Map::new(),
+            &overrides,
             &features,
             1,
             ChapterConfigLanguage::English,
@@ -832,6 +883,17 @@ mod tests {
 
         let dark_currency = item(&view, "darkCurrency");
         assert_eq!(dark_currency["current"]["label"], "Dark Dollars");
+        assert_eq!(item(&view, "darkCurrencyShort")["current"]["label"], "D$");
+        assert_eq!(item(&view, "lightCurrencyShort")["current"]["label"], "$");
+        assert_eq!(item(&view, "tpName")["current"]["label"], "TP");
+        let light_currency = item(&view, "lightCurrency");
+        assert_eq!(light_currency["current"]["label"], "Credits");
+        assert_eq!(light_currency["isOverride"], true);
+        assert!(light_currency["options"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|option| option["label"] == "Money"));
     }
 
     #[test]
