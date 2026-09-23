@@ -12,20 +12,21 @@
 
 ## Kristal Version Support
 
-| `kristal`                                                                                                                    | `kristal-debug-tools-gui` |
-| -------------------------------------------------------------------------------------------------------------------------------| ------------------------------------- |
-| [v0.11.0-dev](https://github.com/KristalTeam/Kristal/commit/f62afea63ccab02f468c24ac0d096bd8a2c9aa81) (`f62afea`, 2026-08-16) | v0.2.0 |
-| [v0.10.0](https://github.com/KristalTeam/Kristal/commit/752bc0688ba97ca8a256ba9125b7e05a1ca6edbd) (`752bc068`, 2026-06-23)    | v0.1.0 – v0.1.5                                |
+| `kristal`                                                                                                                     | `kristal-debug-tools-gui` |
+| ----------------------------------------------------------------------------------------------------------------------------- | ------------------------- |
+| [v0.11.0-dev](https://github.com/KristalTeam/Kristal/commit/8e592d84065263138d4e92593f0a4ab780d93822) (`8e592d8`, 2026-09-21) |                           |
+| [v0.11.0-dev](https://github.com/KristalTeam/Kristal/commit/f62afea63ccab02f468c24ac0d096bd8a2c9aa81) (`f62afea`, 2026-08-16) | v0.2.0                    |
+| [v0.10.0](https://github.com/KristalTeam/Kristal/commit/752bc0688ba97ca8a256ba9125b7e05a1ca6edbd) (`752bc068`, 2026-06-23)    | v0.1.0 – v0.1.5           |
 
 ## 最终用户：一键运行（零工具链）
 
 Windows / Linux 都只需要 **LÖVE 装好并进 PATH**（Git Bash 进 PATH 后构建任务也能跑）。不需要 just、Rust、Node。
 
-| 方式         | 说明                                                                                                                                      |
-| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| 下载 Release | 去 [Releases](https://github.com/Bli-AIk/kristal-debug-tools-gui/releases) 拿对应架构（x64/arm64）的裸二进制，双击运行                    |
+| 方式         | 说明                                                                                                                                     |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| 下载 Release | 去 [Releases](https://github.com/Bli-AIk/kristal-debug-tools-gui/releases) 拿对应架构（x64/arm64）的裸二进制，双击运行                   |
 | `just gui`   | 项目里 `just --justfile libraries/kristal-debug-tools/justfile gui`，按引擎 `VERSION` 下载匹配的 release 到 `.tools/gui/`（SHA256 校验） |
-| `gui.cmd`    | 库目录里双击 `gui.cmd`（Windows），逻辑同上                                                                                               |
+| `gui.cmd`    | 库目录里双击 `gui.cmd`（Windows），逻辑同上                                                                                              |
 
 `just gui` 只运行当前引擎对应的固定 release：`0.10.0 -> v0.1.5`，`0.11.0-dev -> v0.2.0`。未知引擎版本会停止并说明原因，不会请求 GitHub 的全局 `latest`。目标 release 尚未上传时请稍后重试。
 
